@@ -1,0 +1,70 @@
+# SmartCourse — core journey REST collection.
+# Works with the VS Code "REST Client" extension or JetBrains HTTP Client.
+# Run top-to-bottom: register users → create course → publish → enroll → complete.
+# Requires the API running: `make api` (with Postgres up) or `make up`.
+
+@base = http://localhost:8000/api/v1
+
+### 1. Register an instructor  -> capture id
+# @name instructor
+POST {{base}}/users
+Content-Type: application/json
+
+{ "email": "prof@example.com", "full_name": "Professor Ada", "role": "instructor" }
+
+### 2. Register a student  -> capture id
+# @name student
+POST {{base}}/users
+Content-Type: application/json
+
+{ "email": "student@example.com", "full_name": "Sam Learner", "role": "student" }
+
+### 3. Create a course (with a module + assets)  -> capture id
+# @name course
+POST {{base}}/courses
+Content-Type: application/json
+
+{
+  "title": "Distributed Systems 101",
+  "description": "Foundations of scalable backends",
+  "instructor_id": "{{instructor.response.body.id}}",
+  "enrollment_limit": 100,
+  "modules": [
+    {
+      "title": "Module 1: Basics",
+      "order_index": 0,
+      "assets": [
+        { "title": "Intro", "type": "text", "content": "Welcome!", "order_index": 0 },
+        { "title": "Lecture video", "type": "video", "url": "https://example.com/v1", "order_index": 1 }
+      ]
+    }
+  ]
+}
+
+### 4. Publish the course (Phase 1: flips to READY)
+POST {{base}}/courses/{{course.response.body.id}}/publish
+
+### 5. Enroll the student  -> capture enrollment id
+# @name enrollment
+POST {{base}}/enrollments
+Content-Type: application/json
+
+{ "student_id": "{{student.response.body.id}}", "course_id": "{{course.response.body.id}}" }
+
+### 6. Duplicate enrollment -> expect 409
+POST {{base}}/enrollments
+Content-Type: application/json
+
+{ "student_id": "{{student.response.body.id}}", "course_id": "{{course.response.body.id}}" }
+
+### 7. Update progress to complete (2 assets) -> auto-complete + certificate
+POST {{base}}/enrollments/{{enrollment.response.body.id}}/progress
+Content-Type: application/json
+
+{ "completed_assets": 2 }
+
+### 8. List the student's enrollments (history)
+GET {{base}}/enrollments/student/{{student.response.body.id}}
+
+### 9. Fetch the course
+GET {{base}}/courses/{{course.response.body.id}}

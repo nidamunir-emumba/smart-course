@@ -1,20 +1,42 @@
-"""Course/module/asset management + publishing. STUB.
+"""Course/module/asset management + publishing.
 
-`POST /{id}/publish` should start the Temporal ContentPublishingWorkflow (durable,
-multi-step: extract -> chunk -> embed -> index -> mark ready) rather than doing the
-work inline. See app/workflows/publishing.py.
+Phase 1: `publish` flips the course to READY synchronously. Phase 2/4 replace it with the
+durable Temporal ContentPublishingWorkflow (extract → chunk → embed → index → mark ready).
 """
-from fastapi import APIRouter
+import uuid
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.postgres import get_session
+from app.schemas.course import CourseCreate, CourseRead, CourseUpdate
+from app.services import courses as course_service
 
 router = APIRouter()
 
 
-@router.post("")
-async def create_course():
-    raise NotImplementedError
+@router.post("", response_model=CourseRead, status_code=status.HTTP_201_CREATED)
+async def create_course(data: CourseCreate, session: AsyncSession = Depends(get_session)):
+    return await course_service.create_course(session, data)
 
 
-@router.post("/{course_id}/publish")
-async def publish_course(course_id: str):
-    """Kick off the durable publishing workflow; returns immediately."""
-    raise NotImplementedError
+@router.get("", response_model=list[CourseRead])
+async def list_courses(session: AsyncSession = Depends(get_session)):
+    return await course_service.list_courses(session)
+
+
+@router.get("/{course_id}", response_model=CourseRead)
+async def get_course(course_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    return await course_service.get_course(session, course_id)
+
+
+@router.patch("/{course_id}", response_model=CourseRead)
+async def update_course(
+    course_id: uuid.UUID, data: CourseUpdate, session: AsyncSession = Depends(get_session)
+):
+    return await course_service.update_course(session, course_id, data)
+
+
+@router.post("/{course_id}/publish", response_model=CourseRead)
+async def publish_course(course_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    return await course_service.publish_course(session, course_id)
