@@ -1,0 +1,197 @@
+# SmartCourse — full local stack.
+# Bring up infra only:   docker compose up -d postgres mongo redis rabbitmq kafka schema-registry qdrant temporal
+# Bring up everything:   docker compose up -d
+# App services (api / *-worker) are commented-friendly: they build from ./Dockerfile.
+
+x-app-env: &app-env
+  # Single source of truth for connection strings; mirrors .env.example.
+  DATABASE_URL: postgresql+asyncpg://smartcourse:smartcourse@postgres:5432/smartcourse
+  MONGO_URL: mongodb://mongo:27017
+  MONGO_DB: smartcourse
+  REDIS_URL: redis://redis:6379/0
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  QDRANT_URL: http://qdrant:6333
+  TEMPORAL_HOST: temporal:7233
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  OTEL_SERVICE_NAME: smartcourse-api
+  LLM_PROVIDER: anthropic
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+services:
+  # ---------- Data stores ----------
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: smartcourse
+      POSTGRES_PASSWORD: smartcourse
+      POSTGRES_DB: smartcourse
+    ports: ["5432:5432"]
+    volumes: [pg_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcourse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes: [mongo_data:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports: ["6333:6333", "6334:6334"]
+    volumes: [qdrant_data:/qdrant/storage]
+
+  # ---------- Messaging / streaming ----------
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports: ["5672:5672", "15672:15672"]   # 15672 = management UI
+    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on: [zookeeper]
+    ports: ["9092:9092", "29092:29092"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT (internal, port 9092) + PLAINTEXT_HOST (from host machine, port 29092)
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    depends_on: [kafka]
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  # ---------- Durable workflows ----------
+  temporal:
+    image: temporalio/auto-setup:1.24
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports: ["7233:7233"]
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: smartcourse
+      POSTGRES_PWD: smartcourse
+      POSTGRES_SEEDS: postgres
+      # auto-setup creates the `temporal` and `temporal_visibility` databases.
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    depends_on: [temporal]
+    ports: ["8088:8080"]
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+
+  # ---------- Observability ----------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./docker/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports: ["4317:4317", "4318:4318", "8889:8889"]  # OTLP gRPC/HTTP, prometheus exporter
+    depends_on: [jaeger]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports: ["16686:16686", "14317:4317"]  # UI, OTLP gRPC (remapped to avoid clash with collector)
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:latest
+    depends_on: [prometheus]
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+
+  # ---------- Application services (build from ./Dockerfile) ----------
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment: *app-env
+    ports: ["8000:8000"]
+    volumes: [".:/app"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      mongo: {condition: service_started}
+      redis: {condition: service_started}
+
+  temporal-worker:
+    build: .
+    command: python -m app.workflows.worker
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: [temporal, api]
+
+  celery-worker:
+    build: .
+    command: celery -A app.tasks.celery_app.celery worker --loglevel=info
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: [rabbitmq, redis]
+
+  event-consumer:
+    build: .
+    command: python -m app.events.run_consumers
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: [kafka, schema-registry]
+
+volumes:
+  pg_data:
+  mongo_data:
+  redis_data:
+  qdrant_data:
+  rabbitmq_data:
+  grafana_data:
