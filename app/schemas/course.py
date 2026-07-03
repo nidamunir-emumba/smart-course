@@ -45,9 +45,9 @@ class ModuleRead(BaseModel):
 
 # ---------- Course ----------
 class CourseCreate(BaseModel):
+    # instructor_id is derived from the authenticated user, not the request body.
     title: str
     description: str | None = None
-    instructor_id: uuid.UUID
     enrollment_limit: int | None = None
     prerequisite_ids: list[uuid.UUID] = Field(default_factory=list)
     modules: list[ModuleCreate] = Field(default_factory=list)

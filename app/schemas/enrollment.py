@@ -8,7 +8,7 @@ from app.models.enums import EnrollmentStatus
 
 
 class EnrollmentCreate(BaseModel):
-    student_id: uuid.UUID
+    # student_id is derived from the authenticated user, not the request body.
     course_id: uuid.UUID
 
 

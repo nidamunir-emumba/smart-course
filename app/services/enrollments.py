@@ -41,14 +41,16 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def enroll(session: AsyncSession, data: EnrollmentCreate) -> Enrollment:
-    await require_role(session, data.student_id, UserRole.STUDENT)
+async def enroll(
+    session: AsyncSession, data: EnrollmentCreate, student_id: uuid.UUID
+) -> Enrollment:
+    await require_role(session, student_id, UserRole.STUDENT)
     course = await get_course(session, data.course_id)  # loads modules/assets + prerequisites
 
     if course.status != CourseStatus.READY:
         raise CourseNotPublishedError(f"Course {course.id} is not open for enrollment")
 
-    if await _active_enrollment(session, data.student_id, data.course_id) is not None:
+    if await _active_enrollment(session, student_id, data.course_id) is not None:
         raise DuplicateEnrollmentError("Student is already actively enrolled in this course")
 
     if course.enrollment_limit is not None:
@@ -57,14 +59,14 @@ async def enroll(session: AsyncSession, data: EnrollmentCreate) -> Enrollment:
             raise EnrollmentLimitReachedError("Course enrollment limit reached")
 
     if course.prerequisites:
-        completed = await _completed_course_ids(session, data.student_id)
+        completed = await _completed_course_ids(session, student_id)
         missing = [str(p.id) for p in course.prerequisites if p.id not in completed]
         if missing:
             raise PrerequisitesNotMetError(f"Unmet prerequisite course(s): {missing}")
 
     total_assets = sum(len(m.assets) for m in course.modules)
     enrollment = Enrollment(
-        student_id=data.student_id,
+        student_id=student_id,
         course_id=data.course_id,
         status=EnrollmentStatus.ACTIVE,
         progress=Progress(total_assets=total_assets, completed_assets=0, percent_complete=0.0),

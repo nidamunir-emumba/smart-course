@@ -10,10 +10,14 @@ from app.services import courses as course_service
 from app.services import users as user_service
 
 
+DEFAULT_PASSWORD = "password123"
+
+
 async def make_user(session: AsyncSession, role: UserRole, name: str = "Test"):
     email = f"{role.value}-{uuid.uuid4().hex[:8]}@example.com"
     return await user_service.create_user(
-        session, UserCreate(email=email, full_name=name, role=role)
+        session,
+        UserCreate(email=email, full_name=name, role=role, password=DEFAULT_PASSWORD),
     )
 
 
@@ -34,12 +38,14 @@ async def make_course(
         session,
         CourseCreate(
             title="Intro Course",
-            instructor_id=instructor_id,
             enrollment_limit=enrollment_limit,
             prerequisite_ids=prerequisite_ids or [],
             modules=[ModuleCreate(title="Module 1", order_index=0, assets=assets)],
         ),
+        instructor_id=instructor_id,
     )
     if publish:
-        course = await course_service.publish_course(session, course.id)
+        # Fetch the owning instructor to satisfy the ownership check.
+        instructor = await user_service.get_user(session, instructor_id)
+        course = await course_service.publish_course(session, course.id, actor=instructor)
     return course

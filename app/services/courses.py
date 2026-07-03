@@ -11,8 +11,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models.course import Asset, Course, Module
 from app.models.enums import CourseStatus, UserRole
+from app.models.user import User
 from app.schemas.course import CourseCreate, CourseUpdate
-from app.services.exceptions import NotFoundError
+from app.services.exceptions import ForbiddenError, NotFoundError
 from app.services.users import require_role
 
 _COURSE_LOADERS = (
@@ -21,13 +22,22 @@ _COURSE_LOADERS = (
 )
 
 
-async def create_course(session: AsyncSession, data: CourseCreate) -> Course:
-    await require_role(session, data.instructor_id, UserRole.INSTRUCTOR)
+def _require_owner(course: Course, actor: User) -> None:
+    """Only the owning instructor (or an admin) may modify a course."""
+    if actor.role == UserRole.ADMIN or course.instructor_id == actor.id:
+        return
+    raise ForbiddenError("You do not own this course")
+
+
+async def create_course(
+    session: AsyncSession, data: CourseCreate, instructor_id: uuid.UUID
+) -> Course:
+    await require_role(session, instructor_id, UserRole.INSTRUCTOR)
 
     course = Course(
         title=data.title,
         description=data.description,
-        instructor_id=data.instructor_id,
+        instructor_id=instructor_id,
         enrollment_limit=data.enrollment_limit,
         status=CourseStatus.DRAFT,
     )
@@ -71,9 +81,10 @@ async def list_courses(session: AsyncSession) -> list[Course]:
 
 
 async def update_course(
-    session: AsyncSession, course_id: uuid.UUID, data: CourseUpdate
+    session: AsyncSession, course_id: uuid.UUID, data: CourseUpdate, actor: User
 ) -> Course:
     course = await get_course(session, course_id)
+    _require_owner(course, actor)
     if data.title is not None:
         course.title = data.title
     if data.description is not None:
@@ -86,9 +97,12 @@ async def update_course(
     return await get_course(session, course_id)
 
 
-async def publish_course(session: AsyncSession, course_id: uuid.UUID) -> Course:
+async def publish_course(
+    session: AsyncSession, course_id: uuid.UUID, actor: User
+) -> Course:
     """Placeholder publish (Phase 1): mark READY. Real pipeline arrives in Phase 2/4."""
     course = await get_course(session, course_id)
+    _require_owner(course, actor)
     course.status = CourseStatus.READY
     await session.commit()
     return await get_course(session, course_id)

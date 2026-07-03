@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     temporal_namespace: str = "default"
     temporal_task_queue: str = "smartcourse"
 
+    # Auth (JWT)
+    # Dev default only (>=32 bytes for HS256). Override via JWT_SECRET_KEY in prod.
+    jwt_secret_key: str = "dev-secret-change-me-in-production-0123456789"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24  # 24h
+
     # AI / LLM
     llm_provider: str = "anthropic"  # anthropic | openai | groq
     anthropic_api_key: str = ""

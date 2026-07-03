@@ -20,6 +20,10 @@ class NotFoundError(DomainError):
     status_code = 404
 
 
+class ForbiddenError(DomainError):
+    status_code = 403
+
+
 class ConflictError(DomainError):
     status_code = 409
 

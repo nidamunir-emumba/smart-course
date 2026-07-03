@@ -18,6 +18,8 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Nullable: pre-auth rows have no password and simply can't log in.
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(
         pg_enum(UserRole, "user_role"), nullable=False, default=UserRole.STUDENT
     )
