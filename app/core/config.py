@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24h
 
+    # CORS — browser origins allowed to call the API (the SPA dev server).
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
     # AI / LLM
     llm_provider: str = "anthropic"  # anthropic | openai | groq
     anthropic_api_key: str = ""
