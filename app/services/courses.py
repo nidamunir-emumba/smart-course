@@ -5,7 +5,7 @@ the real content-processing pipeline (extract → chunk → embed → index) run
 """
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +13,7 @@ from app.models.course import Asset, Course, Module
 from app.models.enums import CourseStatus, UserRole
 from app.models.user import User
 from app.schemas.course import CourseCreate, CourseUpdate
-from app.services.exceptions import ForbiddenError, NotFoundError
+from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.services.users import require_role
 
 _COURSE_LOADERS = (
@@ -73,11 +73,34 @@ async def get_course(session: AsyncSession, course_id: uuid.UUID) -> Course:
     return course
 
 
-async def list_courses(session: AsyncSession) -> list[Course]:
-    result = await session.execute(
-        select(Course).options(*_COURSE_LOADERS).order_by(Course.created_at)
-    )
+async def list_courses(
+    session: AsyncSession, *, viewer: User, limit: int = 50, offset: int = 0
+) -> list[Course]:
+    """List courses visible to `viewer`:
+
+    - student: only READY courses,
+    - instructor: READY courses plus their own (any status),
+    - admin: everything.
+    """
+    stmt = select(Course).options(*_COURSE_LOADERS).order_by(Course.created_at)
+    if viewer.role == UserRole.STUDENT:
+        stmt = stmt.where(Course.status == CourseStatus.READY)
+    elif viewer.role == UserRole.INSTRUCTOR:
+        stmt = stmt.where(
+            or_(Course.status == CourseStatus.READY, Course.instructor_id == viewer.id)
+        )
+    stmt = stmt.limit(limit).offset(offset)
+    result = await session.execute(stmt)
     return list(result.scalars().unique().all())
+
+
+def is_visible_to(course: Course, viewer: User) -> bool:
+    """Same visibility rule as `list_courses`, for single-course reads."""
+    if viewer.role == UserRole.ADMIN:
+        return True
+    if course.status == CourseStatus.READY:
+        return True
+    return course.instructor_id == viewer.id and viewer.role == UserRole.INSTRUCTOR
 
 
 async def update_course(
@@ -100,12 +123,52 @@ async def update_course(
 async def publish_course(
     session: AsyncSession, course_id: uuid.UUID, actor: User
 ) -> Course:
-    """Placeholder publish (Phase 1): mark READY. Real pipeline arrives in Phase 2/4."""
+    """Placeholder publish (Phase 1): DRAFT -> READY. Real pipeline arrives in Phase 2/4."""
     course = await get_course(session, course_id)
     _require_owner(course, actor)
+    if course.status != CourseStatus.DRAFT:
+        raise ConflictError(f"Only draft courses can be published (is {course.status.value})")
     course.status = CourseStatus.READY
     await session.commit()
     return await get_course(session, course_id)
+
+
+async def unpublish_course(
+    session: AsyncSession, course_id: uuid.UUID, actor: User
+) -> Course:
+    """READY -> DRAFT, hiding the course from students again (existing enrollments retained)."""
+    course = await get_course(session, course_id)
+    _require_owner(course, actor)
+    if course.status != CourseStatus.READY:
+        raise ConflictError(f"Only ready courses can be unpublished (is {course.status.value})")
+    course.status = CourseStatus.DRAFT
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def archive_course(
+    session: AsyncSession, course_id: uuid.UUID, actor: User
+) -> Course:
+    """DRAFT/READY -> ARCHIVED. Terminal: no new enrollments; history is preserved."""
+    course = await get_course(session, course_id)
+    _require_owner(course, actor)
+    if course.status == CourseStatus.ARCHIVED:
+        raise ConflictError("Course is already archived")
+    course.status = CourseStatus.ARCHIVED
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def delete_course(session: AsyncSession, course_id: uuid.UUID, actor: User) -> None:
+    """Hard-delete a course. Only allowed while DRAFT (no enrollments can exist yet)."""
+    course = await get_course(session, course_id)
+    _require_owner(course, actor)
+    if course.status != CourseStatus.DRAFT:
+        raise ConflictError(
+            f"Only draft courses can be deleted (is {course.status.value}); archive instead"
+        )
+    await session.delete(course)
+    await session.commit()
 
 
 async def _load_courses(session: AsyncSession, ids: list[uuid.UUID]) -> list[Course]:
