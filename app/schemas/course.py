@@ -27,11 +27,24 @@ class AssetRead(BaseModel):
     order_index: int
 
 
+class AssetUpdate(BaseModel):
+    title: str | None = None
+    type: AssetType | None = None
+    content: str | None = None
+    url: str | None = None
+    order_index: int | None = None
+
+
 # ---------- Module ----------
 class ModuleCreate(BaseModel):
     title: str
     order_index: int = 0
     assets: list[AssetCreate] = Field(default_factory=list)
+
+
+class ModuleUpdate(BaseModel):
+    title: str | None = None
+    order_index: int | None = None
 
 
 class ModuleRead(BaseModel):

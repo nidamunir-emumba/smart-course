@@ -12,7 +12,14 @@ from sqlalchemy.orm import selectinload
 from app.models.course import Asset, Course, Module
 from app.models.enums import CourseStatus, UserRole
 from app.models.user import User
-from app.schemas.course import CourseCreate, CourseUpdate
+from app.schemas.course import (
+    AssetCreate,
+    AssetUpdate,
+    CourseCreate,
+    CourseUpdate,
+    ModuleCreate,
+    ModuleUpdate,
+)
 from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.services.users import require_role
 
@@ -169,6 +176,133 @@ async def delete_course(session: AsyncSession, course_id: uuid.UUID, actor: User
         )
     await session.delete(course)
     await session.commit()
+
+
+# ---------- module & asset editing (draft courses only) ----------
+def _require_editable(course: Course) -> None:
+    if course.status != CourseStatus.DRAFT:
+        raise ConflictError(
+            f"Course content is editable only while draft (is {course.status.value}); "
+            "unpublish it first"
+        )
+
+
+def _find_module(course: Course, module_id: uuid.UUID) -> Module:
+    for module in course.modules:
+        if module.id == module_id:
+            return module
+    raise NotFoundError(f"Module {module_id} not found in course {course.id}")
+
+
+def _find_asset(module: Module, asset_id: uuid.UUID) -> Asset:
+    for asset in module.assets:
+        if asset.id == asset_id:
+            return asset
+    raise NotFoundError(f"Asset {asset_id} not found in module {module.id}")
+
+
+async def _owned_editable_course(
+    session: AsyncSession, course_id: uuid.UUID, actor: User
+) -> Course:
+    course = await get_course(session, course_id)
+    _require_owner(course, actor)
+    _require_editable(course)
+    return course
+
+
+async def add_module(
+    session: AsyncSession, course_id: uuid.UUID, data: ModuleCreate, actor: User
+) -> Course:
+    course = await _owned_editable_course(session, course_id, actor)
+    module = Module(course_id=course.id, title=data.title, order_index=data.order_index)
+    module.assets = [
+        Asset(title=a.title, type=a.type, content=a.content, url=a.url, order_index=a.order_index)
+        for a in data.assets
+    ]
+    course.modules.append(module)
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def update_module(
+    session: AsyncSession,
+    course_id: uuid.UUID,
+    module_id: uuid.UUID,
+    data: ModuleUpdate,
+    actor: User,
+) -> Course:
+    course = await _owned_editable_course(session, course_id, actor)
+    module = _find_module(course, module_id)
+    if data.title is not None:
+        module.title = data.title
+    if data.order_index is not None:
+        module.order_index = data.order_index
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def delete_module(
+    session: AsyncSession, course_id: uuid.UUID, module_id: uuid.UUID, actor: User
+) -> Course:
+    course = await _owned_editable_course(session, course_id, actor)
+    # Removing from the collection triggers delete-orphan and keeps the in-memory state correct.
+    course.modules.remove(_find_module(course, module_id))
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def add_asset(
+    session: AsyncSession,
+    course_id: uuid.UUID,
+    module_id: uuid.UUID,
+    data: AssetCreate,
+    actor: User,
+) -> Course:
+    course = await _owned_editable_course(session, course_id, actor)
+    module = _find_module(course, module_id)
+    module.assets.append(
+        Asset(
+            title=data.title,
+            type=data.type,
+            content=data.content,
+            url=data.url,
+            order_index=data.order_index,
+        )
+    )
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def update_asset(
+    session: AsyncSession,
+    course_id: uuid.UUID,
+    module_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    data: AssetUpdate,
+    actor: User,
+) -> Course:
+    course = await _owned_editable_course(session, course_id, actor)
+    asset = _find_asset(_find_module(course, module_id), asset_id)
+    for field in ("title", "type", "content", "url", "order_index"):
+        value = getattr(data, field)
+        if value is not None:
+            setattr(asset, field, value)
+    await session.commit()
+    return await get_course(session, course_id)
+
+
+async def delete_asset(
+    session: AsyncSession,
+    course_id: uuid.UUID,
+    module_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    actor: User,
+) -> Course:
+    course = await _owned_editable_course(session, course_id, actor)
+    module = _find_module(course, module_id)
+    module.assets.remove(_find_asset(module, asset_id))
+    await session.commit()
+    return await get_course(session, course_id)
 
 
 async def _load_courses(session: AsyncSession, ids: list[uuid.UUID]) -> list[Course]:
