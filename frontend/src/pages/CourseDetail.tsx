@@ -10,6 +10,7 @@ import { ProgressRing } from '../components/Progress'
 import { AskLesson } from '../components/AskLesson'
 import { LearningPath } from '../components/LearningPath'
 import { DIAGRAM_MARKER, LessonDiagram } from '../components/LessonDiagram'
+import { CHESS_MARKER, ChessBoard } from '../components/ChessBoard'
 import { Spinner, ErrorState, InlineError } from '../components/Feedback'
 
 export function CourseDetail() {
@@ -374,11 +375,13 @@ function LessonRow({
           </summary>
           <div className="space-y-4 border-t border-line bg-paper/30 px-5 py-5 text-[0.925rem] leading-7 text-ink/80">
             {paragraphs.map((p, i) => {
-              // A paragraph of exactly [diagram:name] renders as a drawing.
-              const marker = p.trim().match(DIAGRAM_MARKER)
-              return marker ? (
-                <LessonDiagram key={i} name={marker[1]} />
-              ) : (
+              // Marker paragraphs render as drawings: [diagram:name] or [fen:…].
+              const trimmed = p.trim()
+              const diagram = trimmed.match(DIAGRAM_MARKER)
+              if (diagram) return <LessonDiagram key={i} name={diagram[1]} />
+              const chess = trimmed.match(CHESS_MARKER)
+              if (chess) return <ChessBoard key={i} fen={chess[1]} caption={chess[2]} />
+              return (
                 <p key={i} className="max-w-[62ch] whitespace-pre-wrap">
                   {p}
                 </p>

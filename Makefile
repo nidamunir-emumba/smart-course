@@ -1,4 +1,4 @@
-.PHONY: help infra up down logs migrate revision seed seed-academy api worker consumer test lint fmt
+.PHONY: help infra up down logs migrate revision seed seed-academy seed-chess api worker consumer test lint fmt
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -26,6 +26,9 @@ seed: ## Seed demo courses with long-form lessons (runs in the api container)
 
 seed-academy: ## Seed the Academy: a 2-course path teaching this project's own stack
 	docker compose exec api python -m scripts.seed_academy
+
+seed-chess: ## Seed the Chess Mastery Program (diagnostic + first two modules)
+	docker compose exec api python -m scripts.seed_chess
 
 api: ## Run the API locally (needs infra up)
 	uvicorn app.main:app --reload --port 8000

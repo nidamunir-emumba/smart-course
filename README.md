@@ -42,6 +42,11 @@ quizzes, hands-on exercises, and a capstone design assignment. Course 1
 (*Inside SmartCourse*), so the platform itself enforces the path. Enroll as a
 student and study it in the browser.
 
+`make seed-chess` seeds the Chess Mastery Program: a diagnostic plus the first
+two modules of a coached 12-module path (positions render as real boards via
+the `[fen:…]` lesson marker); later modules are generated from the student's
+results.
+
 ## Testing notifications
 
 The API only *queues* email tasks; the Celery worker executes them — run both:
