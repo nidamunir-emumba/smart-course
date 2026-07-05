@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { coursesApi, enrollmentsApi } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
@@ -11,10 +11,18 @@ import { Spinner, ErrorState, EmptyState } from '../components/Feedback'
 
 const LIMIT = 12
 
+type CatalogFilter = 'all' | 'enrolled' | 'archived'
+
 export function Catalog() {
   const { user, loading } = useAuth()
   const [offset, setOffset] = useState(0)
-  const [showArchived, setShowArchived] = useState(false)
+  // Filter lives in the URL (?filter=enrolled) so each view is linkable.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const raw = searchParams.get('filter')
+  const filter: CatalogFilter =
+    raw === 'enrolled' || raw === 'archived' ? raw : 'all'
+  const setFilter = (f: CatalogFilter) =>
+    setSearchParams(f === 'all' ? {} : { filter: f }, { replace: true })
   const queryClient = useQueryClient()
 
   const coursesQuery = useQuery({
@@ -84,32 +92,53 @@ export function Catalog() {
       ) : coursesQuery.data && coursesQuery.data.length > 0 ? (
         <>
           {(() => {
-            // Courses whose enrollment the student shelved are hidden by
-            // default — the filter chip brings them back.
+            // Archived enrollments are hidden except on the Archived view;
+            // Enrolled shows only courses the student is taking or has taken.
             const isArchived = (courseId: string) =>
               enrollmentByCourse.get(courseId)?.archived_at != null
+            const isEnrolled = (courseId: string) => enrollmentByCourse.has(courseId)
             const archivedCount = coursesQuery.data.filter((c) => isArchived(c.id)).length
-            const visible = showArchived
-              ? coursesQuery.data
-              : coursesQuery.data.filter((c) => !isArchived(c.id))
+            const visible = coursesQuery.data.filter((c) =>
+              filter === 'archived'
+                ? isArchived(c.id)
+                : filter === 'enrolled'
+                  ? isEnrolled(c.id) && !isArchived(c.id)
+                  : !isArchived(c.id)
+            )
+            const chip = (f: CatalogFilter, label: string) => (
+              <button
+                key={f}
+                type="button"
+                className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setFilter(f)}
+              >
+                {label}
+              </button>
+            )
             return (
               <>
-                {archivedCount > 0 && (
-                  <div className="-mt-4 flex justify-end">
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setShowArchived((v) => !v)}
-                    >
-                      {showArchived
-                        ? 'Hide archived'
-                        : `Show archived · ${archivedCount}`}
-                    </button>
+                {user?.role === 'student' && (
+                  <div className="-mt-4 flex gap-2">
+                    {chip('all', 'All courses')}
+                    {chip('enrolled', 'Enrolled')}
+                    {archivedCount > 0 && chip('archived', `Archived · ${archivedCount}`)}
                   </div>
                 )}
                 {visible.length === 0 ? (
-                  <EmptyState title="Everything on this page is archived">
-                    Use “Show archived” above to see your shelved courses.
+                  <EmptyState
+                    title={
+                      filter === 'enrolled'
+                        ? 'You aren’t enrolled in anything on this page'
+                        : filter === 'archived'
+                          ? 'No archived courses'
+                          : 'Everything on this page is archived'
+                    }
+                  >
+                    {filter === 'enrolled' ? (
+                      <>Switch to “All courses” and enroll to see it here.</>
+                    ) : (
+                      <>Use the filters above to change the view.</>
+                    )}
                   </EmptyState>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
