@@ -103,3 +103,11 @@ this is an explicit product requirement, not optional polish.
 - Endpoints that trigger workflows (`courses.publish`, `enrollments`) should *start* the
   Temporal workflow and return immediately, not do the work inline.
 - Default to the latest Claude models for any LLM work (`claude-sonnet-5`, `claude-opus-4-8`).
+- **Keep the seeded courses in sync with the app.** The Academy course *"Inside SmartCourse"*
+  (`scripts/seed_academy.py`) teaches this app's own architecture, and the README's status
+  block advertises what works. On any major change (new feature, new service, changed flow,
+  filled-in Phase-2 stub), update the affected lesson content **in the same PR**: edit the
+  seed script *and* patch the live DB rows in place (UPDATE the asset content via the api
+  container — never re-run the seeder casually, it cascades away student enrollments and
+  progress). Lesson markers available for content: `[diagram:name]` (SVG registry in
+  `LessonDiagram.tsx`) and `[fen:…|caption]` (chess boards).
