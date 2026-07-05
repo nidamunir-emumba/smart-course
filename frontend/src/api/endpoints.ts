@@ -2,6 +2,7 @@
 // pages compose these with TanStack Query.
 import { api } from './client'
 import type {
+  AppNotification,
   Course,
   CourseCreate,
   CourseUpdate,
@@ -14,6 +15,7 @@ import type {
   AssetUpdate,
   RegisterRequest,
   Token,
+  UnreadCount,
   User,
 } from './types'
 
@@ -70,4 +72,12 @@ export const enrollmentsApi = {
     api.get<Enrollment[]>(`/enrollments/student/${studentId}`),
   setProgress: (id: string, completedAssets: number) =>
     api.post<Enrollment>(`/enrollments/${id}/progress`, { completed_assets: completedAssets }),
+}
+
+// ── Notifications ───────────────────────────────────────────────────────────
+export const notificationsApi = {
+  list: (limit = 20) => api.get<AppNotification[]>(`/notifications?limit=${limit}`),
+  unreadCount: () => api.get<UnreadCount>('/notifications/unread-count'),
+  markRead: (id: string) => api.post<AppNotification>(`/notifications/${id}/read`),
+  markAllRead: () => api.post<UnreadCount>('/notifications/read-all'),
 }

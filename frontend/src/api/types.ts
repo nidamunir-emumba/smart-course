@@ -125,3 +125,20 @@ export interface CourseUpdate {
   enrollment_limit?: number | null
   prerequisite_ids?: string[]
 }
+
+// ── Notifications ───────────────────────────────────────────────────────────
+export type NotificationKind = 'welcome' | 'enrollment' | 'completion'
+
+export interface AppNotification {
+  id: string
+  kind: NotificationKind
+  title: string
+  body: string
+  link: string | null
+  read_at: string | null
+  created_at: string
+}
+
+export interface UnreadCount {
+  unread: number
+}

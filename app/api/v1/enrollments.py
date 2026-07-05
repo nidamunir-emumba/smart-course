@@ -17,6 +17,7 @@ from app.models.user import User
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentRead
 from app.services import courses as course_service
 from app.services import enrollments as enrollment_service
+from app.services import notifications as notification_service
 from app.services import users as user_service
 from app.services.exceptions import ForbiddenError
 from app.tasks import dispatch
@@ -44,6 +45,17 @@ async def enroll(
 ):
     enrollment = await enrollment_service.enroll(session, data, student_id=user.id)
     course = await course_service.get_course(session, data.course_id)
+    await notification_service.create(
+        session,
+        user.id,
+        kind="enrollment",
+        title=f"You're enrolled: {course.title}",
+        body=(
+            "Work through the modules at your own pace — finishing every "
+            "lesson earns your certificate."
+        ),
+        link=f"/courses/{course.id}",
+    )
     dispatch.fire(send_course_welcome, user.email, user.full_name, course.title)
     return enrollment
 
@@ -92,6 +104,14 @@ async def update_progress(
     if was_active and updated.status == EnrollmentStatus.COMPLETED and updated.certificate:
         student = await user_service.get_user(session, updated.student_id)
         course = await course_service.get_course(session, updated.course_id)
+        await notification_service.create(
+            session,
+            student.id,
+            kind="completion",
+            title=f"Course complete: {course.title}",
+            body=f"Congratulations — your certificate is issued ({updated.certificate.serial}).",
+            link=f"/certificate/{updated.id}",
+        )
         dispatch.fire(
             send_completion_congrats,
             student.email,
