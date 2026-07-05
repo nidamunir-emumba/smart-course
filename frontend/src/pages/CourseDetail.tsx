@@ -188,6 +188,23 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
     // The next expandable lesson (text with a body); links/videos are opened externally.
     return readingOrder.slice(i + 1).find((a) => a.type === 'text' && a.content?.trim()) ?? null
   }
+  // Scroll to the next lesson only AFTER React has expanded it (and its
+  // module) in the DOM — scrolling inside the click handler targets the
+  // pre-expansion layout. A ref marks the id to scroll to; the effect below
+  // runs post-commit.
+  const scrollToRef = useRef<string | null>(null)
+  useEffect(() => {
+    const id = scrollToRef.current
+    if (!id || openId !== id) return
+    scrollToRef.current = null
+    requestAnimationFrame(() =>
+      document.getElementById(`lesson-${id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    )
+  }, [openId, collapsed])
+
   const completeAndContinue = (asset: Asset) => {
     if (canToggle && !togglePending && !completedIds.has(asset.id)) {
       onToggle(asset.id, false) // mark complete
@@ -198,11 +215,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
       // Continuing may land in a collapsed module — open it so the lesson shows.
       const home = modules.find((m) => m.assets.some((a) => a.id === next.id))
       if (home && collapsed.has(home.id)) toggleModule(home.id)
-      requestAnimationFrame(() =>
-        document
-          .getElementById(`lesson-${next.id}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      )
+      scrollToRef.current = next.id // effect scrolls once the row is expanded
     }
   }
 
