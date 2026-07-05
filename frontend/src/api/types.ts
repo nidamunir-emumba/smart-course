@@ -46,6 +46,7 @@ export interface Course {
   updated_at: string
   modules: Module[]
   prerequisite_ids: string[]
+  content_locked: boolean
 }
 
 export interface Progress {
