@@ -20,16 +20,18 @@ export function Catalog() {
     enabled: !!user, // the catalog endpoint requires authentication
   })
 
-  // The backend gates all course data behind auth — greet anonymous visitors.
-  if (loading) return <Spinner label="Loading…" />
-  if (!user) return <Landing />
-
-  // Students see their own completion on each card.
+  // Students see their own completion on each card. Declared before the early
+  // returns below so hook order stays stable across anonymous / logged-in
+  // renders; `enabled` gates the actual fetch.
   const enrollmentsQuery = useQuery({
     queryKey: ['enrollments', user?.id],
     queryFn: () => enrollmentsApi.forStudent(user!.id),
     enabled: user?.role === 'student',
   })
+
+  // The backend gates all course data behind auth — greet anonymous visitors.
+  if (loading) return <Spinner label="Loading…" />
+  if (!user) return <Landing />
 
   const percentByCourse = new Map<string, number>()
   for (const e of enrollmentsQuery.data ?? []) {
