@@ -4,13 +4,17 @@ Enrollment rules (duplicate/limit/prerequisite/history) live in the enrollment s
 Phase 4 moves this behind the durable Temporal EnrollmentWorkflow; the endpoint will then
 start the workflow and return 202 instead of doing the work inline.
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from app.api.deps import get_current_user, require_role
+from app.core.config import settings
 from app.db.postgres import get_session
 from app.models.enums import EnrollmentStatus, UserRole
 from app.models.user import User
@@ -19,9 +23,13 @@ from app.services import courses as course_service
 from app.services import enrollments as enrollment_service
 from app.services import notifications as notification_service
 from app.services import users as user_service
-from app.services.exceptions import ForbiddenError
+from app.services.exceptions import EnrollmentQueueUnavailableError, ForbiddenError
 from app.tasks import dispatch
 from app.tasks.notifications import send_completion_congrats, send_course_welcome
+from app.workflows.client import get_temporal_client
+from app.workflows.enrollment import enrollment_workflow_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -37,12 +45,46 @@ def _require_self_or_staff(owner_id: uuid.UUID, user: User) -> None:
     raise ForbiddenError("You may only access your own enrollments")
 
 
-@router.post("", response_model=EnrollmentRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=None, status_code=status.HTTP_201_CREATED)
 async def enroll(
     data: EnrollmentCreate,
     user: User = Depends(require_role(UserRole.STUDENT)),
     session: AsyncSession = Depends(get_session),
 ):
+    """Enroll the authenticated student.
+
+    Durable path (ENROLLMENT_WORKFLOW_ENABLED): business rules are validated
+    synchronously so the caller gets a 4xx immediately, then the Temporal
+    EnrollmentWorkflow (record → analytics → notify) is started and we return
+    202 — the enrollment appears once the workflow completes. Duplicate
+    submits share one workflow id and dedupe.
+
+    Inline path (flag off): everything happens in the request, returns 201.
+    """
+    if settings.enrollment_workflow_enabled:
+        await enrollment_service.validate_enrollment(session, user.id, data.course_id)
+        workflow_id = enrollment_workflow_id(str(user.id), str(data.course_id))
+        try:
+            client = await get_temporal_client()
+            await client.start_workflow(
+                "EnrollmentWorkflow",
+                args=[str(user.id), str(data.course_id)],
+                id=workflow_id,
+                task_queue=settings.temporal_task_queue,
+            )
+        except WorkflowAlreadyStartedError:
+            pass  # the same enrollment is already being processed — idempotent
+        except Exception as exc:  # temporal unreachable — don't lose the user
+            logger.warning("temporal unavailable, cannot queue enrollment: %s", exc)
+            raise EnrollmentQueueUnavailableError(
+                "Enrollment processing is temporarily unavailable — try again shortly."
+            ) from exc
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={"status": "accepted", "workflow_id": workflow_id},
+        )
+
+    # Phase-1 inline path.
     enrollment = await enrollment_service.enroll(session, data, student_id=user.id)
     course = await course_service.get_course(session, data.course_id)
     await notification_service.create(
@@ -57,7 +99,7 @@ async def enroll(
         link=f"/courses/{course.id}",
     )
     dispatch.fire(send_course_welcome, user.email, user.full_name, course.title)
-    return enrollment
+    return EnrollmentRead.model_validate(enrollment)
 
 
 @router.get("/{enrollment_id}", response_model=EnrollmentRead)

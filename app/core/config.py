@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     temporal_host: str = "localhost:7233"
     temporal_namespace: str = "default"
     temporal_task_queue: str = "smartcourse"
+    # When true, POST /enrollments validates synchronously then runs the
+    # durable Temporal EnrollmentWorkflow and returns 202 (needs temporal +
+    # a running worker). When false: the Phase-1 inline path.
+    enrollment_workflow_enabled: bool = False
 
     # Auth (JWT)
     # Dev default only (>=32 bytes for HS256). Override via JWT_SECRET_KEY in prod.

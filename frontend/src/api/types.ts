@@ -168,3 +168,9 @@ export interface AskRequest {
 export interface AskResponse {
   answer: string
 }
+
+// Durable enrollment path: the API accepted and queued the workflow.
+export interface EnrollmentAccepted {
+  status: 'accepted'
+  workflow_id: string
+}

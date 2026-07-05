@@ -14,6 +14,7 @@ x-app-env: &app-env
   SCHEMA_REGISTRY_URL: http://schema-registry:8081
   QDRANT_URL: http://qdrant:6333
   TEMPORAL_HOST: temporal:7233
+  ENROLLMENT_WORKFLOW_ENABLED: "true"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
   OTEL_SERVICE_NAME: smartcourse-api
   LLM_PROVIDER: anthropic

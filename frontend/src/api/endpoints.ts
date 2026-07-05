@@ -3,6 +3,7 @@
 import { api } from './client'
 import type {
   AppNotification,
+  EnrollmentAccepted,
   AskRequest,
   AskResponse,
   LearningPathStep,
@@ -70,7 +71,8 @@ export function courseAssetCount(course: Pick<Course, 'modules'>): number {
 
 // ── Enrollments + progress ──────────────────────────────────────────────────
 export const enrollmentsApi = {
-  enroll: (courseId: string) => api.post<Enrollment>('/enrollments', { course_id: courseId }),
+  enroll: (courseId: string) =>
+    api.post<Enrollment | EnrollmentAccepted>('/enrollments', { course_id: courseId }),
   get: (id: string) => api.get<Enrollment>(`/enrollments/${id}`),
   forStudent: (studentId: string) =>
     api.get<Enrollment[]>(`/enrollments/student/${studentId}`),
