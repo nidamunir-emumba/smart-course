@@ -3,26 +3,27 @@
 Intelligent, large-scale course delivery backend for EduCorp — course management,
 event-driven operations, durable workflows, and an AI learning assistant.
 
-> **Status (plain English):** The core platform is built and tested (72 automated
-> checks). Students sign in, browse and enrol in courses, learn lesson by lesson,
-> and earn certificates; instructors build and publish courses. Enrolling runs as
-> a crash-proof background job, and an AI assistant answers questions about any
-> lesson. Still to come: the course-publishing pipeline, the event backbone, and
-> smarter AI search (all scaffolded).
+> **Status:** The core platform is complete and tested (72 automated tests).
+> Students sign in, enrol, work through lessons, and earn certificates;
+> instructors author and publish courses. Enrolment runs as a durable,
+> crash-recoverable workflow (Temporal), and an AI assistant answers
+> lesson-scoped questions. Remaining Phase-2 work — the content-publishing
+> pipeline, the Kafka event backbone, and RAG-based AI retrieval — is scaffolded
+> on already-running infrastructure.
 
 ## What's working
 
-Plain-English points, good for a status update. Tech names are in light parentheses.
+Concise and outcome-focused — suitable for a status update.
 
-- **Sign in with roles** — secure login for students, instructors, and admins; each role can do only what it should. (JWT + bcrypt)
-- **Build & run courses** — instructors create, edit, publish, and archive courses and lessons. Lesson content stays locked until a student enrols.
-- **Learn & track progress** — students enrol (with capacity limits, prerequisites, and no double-enrolling), follow auto-suggested learning paths, tick off lessons, and earn a certificate at 100%; they can archive or leave a course.
-- **Reliable enrolment** — enrolling runs as a background workflow that can't double-enrol, keeps a live count, and finishes itself even if a worker crashes mid-way. (Temporal; watch it at :8088)
-- **Notifications** — email and in-app alerts on sign-up, enrolment, and completion. (Celery for email)
-- **Ask-the-lesson AI** — students ask a question about a lesson and get an answer based on that lesson. (needs an AI key)
-- **Health monitoring** — the app records what it's doing so slowdowns and errors are easy to find: a diary (logs), per-request timings (traces → Jaeger), and live graphs (metrics → Grafana).
-- **Solid foundations** — fast database with automatic upgrades (PostgreSQL + Alembic), and a swappable AI provider (Anthropic / OpenAI / Groq).
-- **Tested** — 72 automated checks covering the whole core, run with no extra setup.
+- **Authentication & roles** — secure login (JWT + bcrypt) with role-based access for students, instructors, and admins.
+- **Course authoring & lifecycle** — create, edit, publish, and archive courses and lessons; lesson content is gated behind enrolment (syllabus public, bodies unlock on enrol — enforced server-side).
+- **Enrolment & progress** — enrolment with capacity, prerequisite, and duplicate rules; auto-generated learning paths; per-lesson completion, progress tracking, and automatic certificates at 100%; students can archive or unenrol (history retained).
+- **Durable enrolment workflow** — enrolment runs on Temporal: idempotent (no double-enrolment or double-counted analytics), backpressure-tolerant, and crash-recoverable — it resumes mid-pipeline after a worker restart. (Temporal UI at :8088)
+- **Notifications** — a transactional in-app feed plus best-effort email (Celery), on sign-up, enrolment, and completion.
+- **AI lesson assistant** — lesson-scoped Q&A grounded in course content; provider-pluggable (Anthropic / OpenAI / Groq). RAG retrieval is the Phase-2 upgrade.
+- **Observability** — structured logging, distributed request tracing (OpenTelemetry → Jaeger), and metrics (Prometheus → Grafana) for fast diagnosis.
+- **Data layer** — async PostgreSQL with versioned schema migrations (Alembic).
+- **Tests** — 72 automated tests covering the full synchronous domain, runnable with no external services.
 
 ## Quick start
 
