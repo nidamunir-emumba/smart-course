@@ -119,9 +119,9 @@ function LessonRow({ asset }: { asset: Asset }) {
               ›
             </span>
           </summary>
-          <div className="max-w-none space-y-3 border-t border-line bg-paper/30 px-5 py-4 text-sm leading-relaxed text-muted">
+          <div className="space-y-4 border-t border-line bg-paper/30 px-5 py-5 text-[0.925rem] leading-7 text-ink/80">
             {paragraphs.map((p, i) => (
-              <p key={i} className="whitespace-pre-wrap">
+              <p key={i} className="max-w-[62ch] whitespace-pre-wrap">
                 {p}
               </p>
             ))}
