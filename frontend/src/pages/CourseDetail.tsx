@@ -7,6 +7,7 @@ import { ApiError } from '../api/client'
 import type { Asset, Course, Enrollment, LearningPathStep } from '../api/types'
 import { CourseStatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/Progress'
+import { AskLesson } from '../components/AskLesson'
 import { Spinner, ErrorState, InlineError } from '../components/Feedback'
 
 export function CourseDetail() {
@@ -145,6 +146,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
                   <LessonRow
                     key={asset.id}
                     asset={asset}
+                    courseId={course.id}
                     completed={enrollment ? completedIds.has(asset.id) : undefined}
                     canToggle={canToggle && !togglePending}
                     locked={locked}
@@ -164,6 +166,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
 
 interface LessonRowProps {
   asset: Asset
+  courseId: string
   completed?: boolean // undefined → not enrolled, no completion UI
   canToggle: boolean
   locked: boolean // enrollment finished — checks are a record, not controls
@@ -173,7 +176,12 @@ interface LessonRowProps {
 /** The completion check: empty circle → amber check. Amber is the achievement
  *  colour everywhere else (ring, certificate), so a finished lesson reads the
  *  same way. On a completed course the checks are locked — the tooltip says so. */
-function LessonCheck({ completed, canToggle, locked, onToggle }: Omit<LessonRowProps, 'asset'>) {
+function LessonCheck({
+  completed,
+  canToggle,
+  locked,
+  onToggle,
+}: Omit<LessonRowProps, 'asset' | 'courseId'>) {
   if (completed === undefined) return null
   const label = locked
     ? 'Course completed — the syllabus is locked as your record'
@@ -216,7 +224,7 @@ function LessonCheck({ completed, canToggle, locked, onToggle }: Omit<LessonRowP
   )
 }
 
-function LessonRow({ asset, completed, canToggle, locked, onToggle }: LessonRowProps) {
+function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: LessonRowProps) {
   const body = asset.type === 'text' ? asset.content?.trim() : null
   const check = (
     <LessonCheck completed={completed} canToggle={canToggle} locked={locked} onToggle={onToggle} />
@@ -244,6 +252,8 @@ function LessonRow({ asset, completed, canToggle, locked, onToggle }: LessonRowP
               </p>
             ))}
           </div>
+          {/* Ask the assistant about this lesson, right where you're reading it. */}
+          <AskLesson courseId={courseId} assetId={asset.id} />
         </details>
       </li>
     )

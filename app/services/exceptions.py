@@ -42,3 +42,9 @@ class PrerequisitesNotMetError(DomainError):
 
 class CourseNotPublishedError(DomainError):
     status_code = 409
+
+
+class AssistantUnavailableError(DomainError):
+    """The LLM behind the assistant could not be reached/configured."""
+
+    status_code = 503
