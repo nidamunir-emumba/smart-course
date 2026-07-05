@@ -11,18 +11,21 @@ Cancelled/completed rows are retained as history; re-enrollment creates a new ac
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.certificate import Certificate
+from app.models.course import Course
 from app.models.enrollment import Enrollment
 from app.models.enums import CourseStatus, EnrollmentStatus, UserRole
+from app.models.lesson_completion import LessonCompletion
 from app.models.progress import Progress
 from app.schemas.enrollment import EnrollmentCreate
 from app.services.courses import get_course
 from app.services.exceptions import (
+    ConflictError,
     CourseNotPublishedError,
     DuplicateEnrollmentError,
     EnrollmentLimitReachedError,
@@ -34,6 +37,7 @@ from app.services.users import require_role
 _ENROLLMENT_LOADERS = (
     selectinload(Enrollment.progress),
     selectinload(Enrollment.certificate),
+    selectinload(Enrollment.completions),
 )
 
 
@@ -83,7 +87,12 @@ async def enroll(
 
 async def get_enrollment(session: AsyncSession, enrollment_id: uuid.UUID) -> Enrollment:
     result = await session.execute(
-        select(Enrollment).where(Enrollment.id == enrollment_id).options(*_ENROLLMENT_LOADERS)
+        select(Enrollment)
+        .where(Enrollment.id == enrollment_id)
+        .options(*_ENROLLMENT_LOADERS)
+        # Refresh identity-mapped rows: lesson toggles use bulk insert/delete,
+        # which the already-loaded `completions` collection wouldn't reflect.
+        .execution_options(populate_existing=True)
     )
     enrollment = result.scalar_one_or_none()
     if enrollment is None:
@@ -104,15 +113,93 @@ async def list_for_student(session: AsyncSession, student_id: uuid.UUID) -> list
 async def set_progress(
     session: AsyncSession, enrollment_id: uuid.UUID, completed_assets: int
 ) -> Enrollment:
-    """Update completion count; auto-complete + issue a certificate at 100%."""
+    """Set completion by count: marks the first N lessons (course order) complete.
+
+    Kept for bulk actions ("complete all"); per-lesson state is the source of
+    truth, so the requested count is materialized as completion rows.
+    """
     enrollment = await get_enrollment(session, enrollment_id)
+    course = await get_course(session, enrollment.course_id)
+    asset_ids = _ordered_asset_ids(course)
+
+    n = max(0, min(completed_assets, len(asset_ids)))
+    await session.execute(
+        delete(LessonCompletion).where(LessonCompletion.enrollment_id == enrollment_id)
+    )
+    session.add_all(
+        LessonCompletion(enrollment_id=enrollment_id, asset_id=aid) for aid in asset_ids[:n]
+    )
+    _apply_progress(enrollment, completed=n)
+
+    await session.commit()
+    return await get_enrollment(session, enrollment_id)
+
+
+async def complete_lesson(
+    session: AsyncSession, enrollment_id: uuid.UUID, asset_id: uuid.UUID
+) -> Enrollment:
+    """Mark one lesson complete (idempotent); auto-completes the course at 100%."""
+    enrollment, asset_ids = await _lesson_toggle_target(session, enrollment_id, asset_id)
+
+    already = {c.asset_id for c in enrollment.completions}
+    if asset_id not in already:
+        session.add(LessonCompletion(enrollment_id=enrollment_id, asset_id=asset_id))
+        _apply_progress(enrollment, completed=len(already) + 1)
+        await session.commit()
+    return await get_enrollment(session, enrollment_id)
+
+
+async def uncomplete_lesson(
+    session: AsyncSession, enrollment_id: uuid.UUID, asset_id: uuid.UUID
+) -> Enrollment:
+    """Unmark a completed lesson (idempotent)."""
+    enrollment, _ = await _lesson_toggle_target(session, enrollment_id, asset_id)
+
+    already = {c.asset_id for c in enrollment.completions}
+    if asset_id in already:
+        await session.execute(
+            delete(LessonCompletion).where(
+                LessonCompletion.enrollment_id == enrollment_id,
+                LessonCompletion.asset_id == asset_id,
+            )
+        )
+        _apply_progress(enrollment, completed=len(already) - 1)
+        await session.commit()
+    return await get_enrollment(session, enrollment_id)
+
+
+# ---------- internal helpers ----------
+def _ordered_asset_ids(course: Course) -> list[uuid.UUID]:
+    """All lesson (asset) ids in reading order: module order, then asset order."""
+    ids: list[uuid.UUID] = []
+    for module in sorted(course.modules, key=lambda m: m.order_index):
+        ids.extend(a.id for a in sorted(module.assets, key=lambda a: a.order_index))
+    return ids
+
+
+async def _lesson_toggle_target(
+    session: AsyncSession, enrollment_id: uuid.UUID, asset_id: uuid.UUID
+) -> tuple[Enrollment, list[uuid.UUID]]:
+    """Shared validation for lesson toggles: enrollment ACTIVE, asset in course."""
+    enrollment = await get_enrollment(session, enrollment_id)
+    if enrollment.status != EnrollmentStatus.ACTIVE:
+        raise ConflictError("Enrollment is not active")
+    course = await get_course(session, enrollment.course_id)
+    asset_ids = _ordered_asset_ids(course)
+    if asset_id not in asset_ids:
+        raise NotFoundError(f"Lesson not found in this course: {asset_id}")
+    return enrollment, asset_ids
+
+
+def _apply_progress(enrollment: Enrollment, *, completed: int) -> None:
+    """Update counters from a completion count; auto-complete + certificate at 100%."""
     progress = enrollment.progress
     if progress is None:
         progress = Progress(total_assets=0, completed_assets=0, percent_complete=0.0)
         enrollment.progress = progress
 
     total = progress.total_assets
-    progress.completed_assets = max(0, min(completed_assets, total)) if total else completed_assets
+    progress.completed_assets = max(0, min(completed, total)) if total else completed
     progress.percent_complete = (progress.completed_assets / total * 100.0) if total else 100.0
     progress.last_activity_at = _now()
 
@@ -122,11 +209,7 @@ async def set_progress(
         if enrollment.certificate is None:
             enrollment.certificate = Certificate(serial=_make_serial())
 
-    await session.commit()
-    return await get_enrollment(session, enrollment_id)
 
-
-# ---------- internal helpers ----------
 async def _active_enrollment(
     session: AsyncSession, student_id: uuid.UUID, course_id: uuid.UUID
 ) -> Enrollment | None:

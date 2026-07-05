@@ -9,6 +9,7 @@ Notification.
 from app.models.certificate import Certificate
 from app.models.course import Asset, Course, Module, course_prerequisites
 from app.models.enrollment import Enrollment
+from app.models.lesson_completion import LessonCompletion
 from app.models.notification import Notification
 from app.models.progress import Progress
 from app.models.user import User
@@ -23,4 +24,5 @@ __all__ = [
     "Progress",
     "Certificate",
     "Notification",
+    "LessonCompletion",
 ]

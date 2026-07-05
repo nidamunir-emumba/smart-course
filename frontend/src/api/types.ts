@@ -69,6 +69,7 @@ export interface Enrollment {
   created_at: string
   progress: Progress | null
   certificate: Certificate | null
+  completed_asset_ids: string[]
 }
 
 // ── Request payloads ────────────────────────────────────────────────────────
