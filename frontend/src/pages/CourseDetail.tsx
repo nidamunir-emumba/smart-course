@@ -115,6 +115,32 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
   const locked = enrollment != null && enrollment.status !== 'active'
   const canToggle = enrollment?.status === 'active'
 
+  // Expansion is controlled so "Complete & continue" can advance the reader
+  // to the next lesson. Reading order: modules, then lessons within each.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const readingOrder = modules.flatMap((m) =>
+    [...m.assets].sort((a, b) => a.order_index - b.order_index)
+  )
+  const nextReadable = (assetId: string): Asset | null => {
+    const i = readingOrder.findIndex((a) => a.id === assetId)
+    // The next expandable lesson (text with a body); links/videos are opened externally.
+    return readingOrder.slice(i + 1).find((a) => a.type === 'text' && a.content?.trim()) ?? null
+  }
+  const completeAndContinue = (asset: Asset) => {
+    if (canToggle && !togglePending && !completedIds.has(asset.id)) {
+      onToggle(asset.id, false) // mark complete
+    }
+    const next = nextReadable(asset.id)
+    setOpenId(next?.id ?? null)
+    if (next) {
+      requestAnimationFrame(() =>
+        document
+          .getElementById(`lesson-${next.id}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      )
+    }
+  }
+
   if (modules.length === 0) {
     return (
       <p className="card px-5 py-8 text-center text-sm text-muted">
@@ -152,6 +178,10 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
                     canToggle={canToggle && !togglePending}
                     locked={locked}
                     onToggle={() => onToggle(asset.id, completedIds.has(asset.id))}
+                    open={openId === asset.id}
+                    onOpenChange={(o) => setOpenId(o ? asset.id : null)}
+                    hasNext={nextReadable(asset.id) !== null}
+                    onCompleteContinue={() => completeAndContinue(asset)}
                   />
                 ))}
               {module.assets.length === 0 && (
@@ -172,6 +202,10 @@ interface LessonRowProps {
   canToggle: boolean
   locked: boolean // enrollment finished — checks are a record, not controls
   onToggle: () => void
+  open: boolean // expansion is controlled by the outline (reading flow)
+  onOpenChange: (open: boolean) => void
+  hasNext: boolean // a further readable lesson exists after this one
+  onCompleteContinue: () => void
 }
 
 /** The completion check: empty circle → green check (success colour — same
@@ -182,7 +216,7 @@ function LessonCheck({
   canToggle,
   locked,
   onToggle,
-}: Omit<LessonRowProps, 'asset' | 'courseId'>) {
+}: Pick<LessonRowProps, 'completed' | 'canToggle' | 'locked' | 'onToggle'>) {
   if (completed === undefined) return null
   const label = locked
     ? 'Course completed — the syllabus is locked as your record'
@@ -242,7 +276,18 @@ function DoneBadge() {
   )
 }
 
-function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: LessonRowProps) {
+function LessonRow({
+  asset,
+  courseId,
+  completed,
+  canToggle,
+  locked,
+  onToggle,
+  open,
+  onOpenChange,
+  hasNext,
+  onCompleteContinue,
+}: LessonRowProps) {
   const body = asset.type === 'text' ? asset.content?.trim() : null
   const check = (
     <LessonCheck completed={completed} canToggle={canToggle} locked={locked} onToggle={onToggle} />
@@ -253,9 +298,15 @@ function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: 
   if (body) {
     const paragraphs = body.split(/\n\s*\n/)
     return (
-      <li>
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 hover:bg-paper/50">
+      <li id={`lesson-${asset.id}`}>
+        <details className="group" open={open}>
+          <summary
+            className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 hover:bg-paper/50"
+            onClick={(e) => {
+              e.preventDefault() // expansion is controlled by the outline
+              onOpenChange(!open)
+            }}
+          >
             {check}
             <span className="badge shrink-0">{asset.type}</span>
             <span className={`${titleCls} font-medium`}>{asset.title}</span>
@@ -273,6 +324,25 @@ function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: 
               </p>
             ))}
           </div>
+          {/* Finish the lesson right where you finished reading it. */}
+          {completed !== undefined && !locked && (
+            <div className="flex justify-end bg-paper/30 px-5 pb-4">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={!completed && !canToggle}
+                onClick={onCompleteContinue}
+              >
+                {completed
+                  ? hasNext
+                    ? 'Continue →'
+                    : 'Close'
+                  : hasNext
+                    ? 'Complete & continue →'
+                    : 'Complete lesson ✓'}
+              </button>
+            </div>
+          )}
           {/* Ask the assistant about this lesson, right where you're reading it. */}
           <AskLesson courseId={courseId} assetId={asset.id} />
         </details>
@@ -281,7 +351,7 @@ function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: 
   }
 
   return (
-    <li className="flex items-center gap-3 px-5 py-2.5">
+    <li id={`lesson-${asset.id}`} className="flex items-center gap-3 px-5 py-2.5">
       {check}
       <span className="badge shrink-0">{asset.type}</span>
       <span className={titleCls}>{asset.title}</span>
