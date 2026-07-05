@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { NotificationBell } from './NotificationBell'
 
@@ -44,14 +44,6 @@ export function AppShell() {
             <NavLink to="/" end className={navClass}>
               Catalog
             </NavLink>
-            {user?.role === 'student' && (
-              <Link
-                to="/?filter=enrolled"
-                className="px-3 py-1.5 font-display text-sm font-medium text-muted transition-colors hover:text-ink"
-              >
-                Enrolled
-              </Link>
-            )}
             {user && (
               <NavLink to="/paths" className={navClass}>
                 Paths

@@ -118,6 +118,15 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
   // Expansion is controlled so "Complete & continue" can advance the reader
   // to the next lesson. Reading order: modules, then lessons within each.
   const [openId, setOpenId] = useState<string | null>(null)
+  // Modules collapse too — a set of collapsed module ids (all expanded by default).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleModule = (moduleId: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(moduleId)) next.delete(moduleId)
+      else next.add(moduleId)
+      return next
+    })
   const readingOrder = modules.flatMap((m) =>
     [...m.assets].sort((a, b) => a.order_index - b.order_index)
   )
@@ -133,6 +142,9 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
     const next = nextReadable(asset.id)
     setOpenId(next?.id ?? null)
     if (next) {
+      // Continuing may land in a collapsed module — open it so the lesson shows.
+      const home = modules.find((m) => m.assets.some((a) => a.id === next.id))
+      if (home && collapsed.has(home.id)) toggleModule(home.id)
       requestAnimationFrame(() =>
         document
           .getElementById(`lesson-${next.id}`)
@@ -153,41 +165,67 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
       <p className="eyebrow">Syllabus · {modules.length} modules</p>
       {modules.map((module, mi) => {
         const done = module.assets.filter((a) => completedIds.has(a.id)).length
+        const isCollapsed = collapsed.has(module.id)
         return (
           <div key={module.id} className="card overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-line px-5 py-3">
+            {/* Module header doubles as the collapse/expand control. */}
+            <button
+              type="button"
+              aria-expanded={!isCollapsed}
+              className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-paper/50 ${
+                isCollapsed ? '' : 'border-b border-line'
+              }`}
+              onClick={() => toggleModule(module.id)}
+            >
               <span className="font-mono text-sm text-primary">
                 {String(mi + 1).padStart(2, '0')}
               </span>
               <h3 className="font-display font-semibold text-ink">{module.title}</h3>
-              {enrollment && module.assets.length > 0 && (
-                <span className="ml-auto font-mono text-xs text-faint">
-                  {done}/{module.assets.length} done
+              <span className="ml-auto flex shrink-0 items-center gap-3">
+                {enrollment && module.assets.length > 0 && (
+                  <span className="font-mono text-xs text-faint">
+                    {done}/{module.assets.length} done
+                  </span>
+                )}
+                {isCollapsed && (
+                  <span className="font-mono text-xs text-faint">
+                    {module.assets.length} lessons
+                  </span>
+                )}
+                <span
+                  className={`font-mono text-xs text-faint transition-transform ${
+                    isCollapsed ? '' : 'rotate-90'
+                  }`}
+                  aria-hidden
+                >
+                  ›
                 </span>
-              )}
-            </div>
-            <ul className="divide-y divide-line">
-              {[...module.assets]
-                .sort((a, b) => a.order_index - b.order_index)
-                .map((asset) => (
-                  <LessonRow
-                    key={asset.id}
-                    asset={asset}
-                    courseId={course.id}
-                    completed={enrollment ? completedIds.has(asset.id) : undefined}
-                    canToggle={canToggle && !togglePending}
-                    locked={locked}
-                    onToggle={() => onToggle(asset.id, completedIds.has(asset.id))}
-                    open={openId === asset.id}
-                    onOpenChange={(o) => setOpenId(o ? asset.id : null)}
-                    hasNext={nextReadable(asset.id) !== null}
-                    onCompleteContinue={() => completeAndContinue(asset)}
-                  />
-                ))}
-              {module.assets.length === 0 && (
-                <li className="px-5 py-2.5 text-sm text-faint">No lessons in this module.</li>
-              )}
-            </ul>
+              </span>
+            </button>
+            {!isCollapsed && (
+              <ul className="divide-y divide-line">
+                {[...module.assets]
+                  .sort((a, b) => a.order_index - b.order_index)
+                  .map((asset) => (
+                    <LessonRow
+                      key={asset.id}
+                      asset={asset}
+                      courseId={course.id}
+                      completed={enrollment ? completedIds.has(asset.id) : undefined}
+                      canToggle={canToggle && !togglePending}
+                      locked={locked}
+                      onToggle={() => onToggle(asset.id, completedIds.has(asset.id))}
+                      open={openId === asset.id}
+                      onOpenChange={(o) => setOpenId(o ? asset.id : null)}
+                      hasNext={nextReadable(asset.id) !== null}
+                      onCompleteContinue={() => completeAndContinue(asset)}
+                    />
+                  ))}
+                {module.assets.length === 0 && (
+                  <li className="px-5 py-2.5 text-sm text-faint">No lessons in this module.</li>
+                )}
+              </ul>
+            )}
           </div>
         )
       })}
