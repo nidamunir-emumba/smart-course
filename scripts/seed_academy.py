@@ -828,6 +828,188 @@ FOUNDATIONS = CourseCreate(
     ],
 )
 
+# ══════════════════════════════════════════════════════════════════════════════
+# COURSE · DOCKER, MADE SIMPLE  (sits between Foundations and Inside SmartCourse)
+# ══════════════════════════════════════════════════════════════════════════════
+
+DK_WHAT = """
+⏱ ~8 min · What you'll get: a clear picture of what a "container" is. No hard words.
+
+A program needs stuff to run. A little program on its own is easy. A big app is not: it needs the right version of Python, a database, a place to send email, and more. Getting all that set up on your computer by hand is slow and easy to get wrong.
+
+Docker fixes this with one simple idea: a box.
+
+A box holds one program and everything that one program needs to run. You don't set anything up by hand — the box already has it inside. You just start the box.
+
+Your computer can run many boxes at the same time. They sit side by side. They do not bump into each other. One box can have an old Python, the box next to it a new one, and neither cares.
+
+[diagram:docker-one-computer]
+
+This app is made of boxes like these. One box is the app itself. One box is the database that saves your work. One box is a fast little memory helper. One box is a to-do list for jobs. You've been using all of them this whole time without seeing them.
+
+That's the whole idea. A box = one program + its stuff, ready to run. The rest of this short course is just: how to start the boxes, how to see them, and how they talk to each other.
+"""
+
+DK_WHY = """
+⏱ ~7 min · What you'll get: why boxes are worth the trouble.
+
+Here's the old problem, in one sentence you've probably heard: "but it works on my computer!"
+
+Two people, two computers. One has one version of a tool, the other has a different one. The app runs fine for one person and breaks for the other. Nobody changed the app — the computers were just different. Hours get lost hunting for why.
+
+A box ends that. Everyone runs the same box. The box has the exact same stuff inside no matter whose computer it sits on. If it runs in the box on your machine, it runs in the box on your teammate's machine, and it runs in the box on the real server too. "It works in the box" just means "it works."
+
+If you know the frontend world, you already know this feeling. When you share a project, you also share a lock file so everyone installs the exact same packages. A box does that same job — same exact stuff for everyone — but for the whole program, not just the little packages.
+
+One more nice thing: boxes are cheap and quick. Starting a box takes about a second. You can start five of them, use them, and throw them all away, and your computer is clean again. Nothing gets left behind and messy.
+
+So: boxes give you "same setup for everyone" and "clean and quick." That is why this app — and most modern apps — are built out of boxes.
+"""
+
+DK_ONEFILE = """
+⏱ ~8 min · What you'll get: how one file starts a whole app made of many boxes.
+
+Starting one box by hand is fine. But this app has many boxes. Typing a long start command for each one, in the right order, every time, would be awful.
+
+So there is one file that lists all the boxes: docker-compose.yml. Think of it as a shopping list. It says "I want an app box, a database box, a memory box, a to-do-list box," and a few settings for each.
+
+Then one command reads that list and starts every box for you, in the right order:
+
+[diagram:docker-one-file]
+
+The two commands you'll use most:
+• make infra — starts the helper boxes (database, memory, and so on) so you can run the app.
+• make up — starts everything, the whole app, in boxes.
+
+And to stop it all and clean up:
+• make down — stops the boxes and removes them.
+
+(These "make ___" words are just short nicknames for the longer Docker commands, kept in a file called Makefile so you don't have to remember the long ones.)
+
+The nice part: you never set up the database or the memory helper by hand. The file already knows what they are and how to start them. New teammate, brand-new laptop? They type make up and the whole app comes to life. That's the payoff of "one file lists every box."
+"""
+
+DK_COMMANDS = """
+⏱ ~9 min · What you'll get: the handful of commands to see and control the boxes. Try each one.
+
+You don't need many. Here are the ones that matter, in plain terms. Open a terminal in the project and try them.
+
+1) See which boxes are running:
+   docker compose ps
+   You get a list — a line per box, and whether it's up. If a box you expected isn't there, this is how you find out.
+
+2) Watch what a box is saying:
+   docker compose logs -f api
+   Every box writes little notes about what it's doing. This shows the "api" box's notes, live. Load a page in the app and watch new lines appear. (Press Ctrl-C to stop watching — the box keeps running.)
+
+3) Run something inside a box:
+   docker compose exec api  <command>
+   This reaches into the "api" box and runs a command in there. It's how the app's setup and helper scripts run — inside the box, where all the right stuff lives.
+
+4) Start / stop / restart:
+   make infra   — start the helper boxes
+   make up      — start everything
+   docker compose restart api   — turn the api box off and on again
+   make down    — stop and remove all the boxes
+
+That's really it. See them (ps), listen to them (logs), reach into them (exec), and turn them on and off. Everything else you'll pick up as you go.
+
+Quick exercise: run docker compose ps and count the boxes. Then run docker compose logs -f api, load any page in the app, and watch the api box narrate the request. You are watching the real app talk.
+"""
+
+DK_TWONAMES = """
+⏱ ~9 min · What you'll get: the one thing that confuses everyone about Docker — and it's simple once drawn.
+
+Here is the single idea that trips people up. It's easy when you see it.
+
+The same database has two names, and which name is right depends on where you are standing.
+
+[diagram:docker-two-names]
+
+• If you are on your own laptop, talking to the database, its name is localhost:5432. ("localhost" just means "this same computer I'm sitting at.")
+• If you are a box inside Docker, talking to the same database, its name is postgres:5432. (Inside Docker, each box is reachable by its short name — the database box is simply "postgres.")
+
+Same database. Two doors into it. Your laptop uses one door; the boxes use the other.
+
+Why two? Because the boxes live in their own little neighborhood inside Docker, where they call each other by short names. Your laptop is outside that neighborhood, so it knocks on a "published" door instead — a door Docker opens to the outside world.
+
+You'll see both names in this project. The settings the boxes use say "postgres" (they're inside). The settings you use from your laptop say "localhost" (you're outside). Now you know why they differ — they're not a mistake, they're the same place seen from two spots.
+
+Hold onto this picture. The next lesson is a true story where forgetting it cost someone real time.
+"""
+
+DK_TROUBLE = """
+⏱ ~8 min · What you'll get: how to not get fooled when a box "loses" your data. A real story from this app.
+
+A short true story from building this very app.
+
+Someone ran a command that talked to "the database" at localhost:5432 from their laptop. It failed with a strange error — as if the database didn't know them, and the tables were missing.
+
+But the database box was running fine. So what happened?
+
+Their laptop also had a second, older database installed directly on it (not in a box) — and it, too, answered at localhost:5432. So the command reached the wrong database: the old one on the laptop, not the box. Same door number, two different rooms behind it. The old one was empty, hence the "who are you, and where are the tables?" error.
+
+The fix was simple once you know the two-names idea: run the command inside the box instead, with docker compose exec — because inside the box, "postgres" can only mean one thing: the real database box. No mix-up possible.
+
+The lesson to keep: if a box seems to "lose" your data, first ask "am I talking to the box, or to something else on my computer that happens to answer at the same door?" Nine times out of ten, that's it. Reach in through the box (exec) and the confusion disappears.
+
+That's the whole trap. You now know more about Docker than most people who use it daily — because you know the two-names picture and why it bites.
+"""
+
+DK_TRYIT = """
+⏱ ~12 min · Your turn. Do these on this app. Nothing here can break anything.
+
+You've got the pictures. Now touch the real thing. Open a terminal in the project folder.
+
+1) Count the boxes.
+   Run: docker compose ps
+   How many boxes are up? Find the one called "api" (the app) and the one called "postgres" (the database). You met both in the first lesson's picture.
+
+2) Listen to a box.
+   Run: docker compose logs -f api
+   Now open the app in your browser and click around. Watch the new lines appear — that's the app box telling you what it's doing, live. Press Ctrl-C when you've seen enough (the box stays on).
+
+3) Reach inside a box (the two-names idea, for real).
+   Run: docker compose exec postgres psql -U smartcourse -c "\\dt"
+   That reaches into the database box and lists its tables. It works because, inside Docker, there's only one thing "postgres" can mean. This is the safe way to talk to the database — no laptop mix-up.
+
+4) Turn a box off and on.
+   Run: docker compose restart api
+   Then reload the app. You'll see a blink of "can't connect," then it's back. The box is easy to restart, and — notice — your data is still there, because the data lives in the database box, which you didn't touch.
+
+If those four felt easy, you're done. You can see boxes, listen to them, reach inside them, and restart them — and you understand the one idea (two names) that confuses everyone else.
+
+Where to go next: the "Inside SmartCourse" course is unlocked. It uses these same boxes to explain the whole app. You'll recognize every box in its big picture — because you just met them here, one at a time.
+"""
+
+DOCKER = CourseCreate(
+    title="Docker, Made Simple",
+    description=(
+        "What is a container? A box. This short, picture-heavy course explains "
+        "Docker in plain words using this very app's boxes — what they are, how "
+        "to start and watch them, and the one two-names idea that confuses "
+        "everyone. No jargon. ~1 hour. Sits between Backend Foundations and "
+        "Inside SmartCourse."
+    ),
+    modules=[
+        ModuleCreate(title="The Big Idea", order_index=0, assets=[
+            text("What is a box?", DK_WHAT, 0),
+            text("Why bother with boxes?", DK_WHY, 1),
+        ]),
+        ModuleCreate(title="Many Boxes at Once", order_index=1, assets=[
+            text("One file starts them all", DK_ONEFILE, 0),
+            text("The commands you'll actually use", DK_COMMANDS, 1),
+        ]),
+        ModuleCreate(title="How Boxes Talk", order_index=2, assets=[
+            text("Same thing, two names", DK_TWONAMES, 0),
+            text("When a box seems to lose your data", DK_TROUBLE, 1),
+        ]),
+        ModuleCreate(title="Your Turn", order_index=3, assets=[
+            text("Try it on this very app", DK_TRYIT, 0),
+        ]),
+    ],
+)
+
 ARCHITECTURE = CourseCreate(
     title="Inside SmartCourse: How This App Actually Works",
     description=(
@@ -912,15 +1094,22 @@ async def main() -> None:
         )
         foundations = await course_service.publish_course(session, foundations.id, instructor)
 
+        # Docker sits between Foundations and Architecture: Foundations → Docker → Inside.
+        docker_spec = DOCKER.model_copy(update={"prerequisite_ids": [foundations.id]})
+        docker = await course_service.create_course(
+            session, docker_spec, instructor_id=instructor.id
+        )
+        docker = await course_service.publish_course(session, docker.id, instructor)
+
         architecture_spec = ARCHITECTURE.model_copy(
-            update={"prerequisite_ids": [foundations.id]}
+            update={"prerequisite_ids": [docker.id]}
         )
         architecture = await course_service.create_course(
             session, architecture_spec, instructor_id=instructor.id
         )
         architecture = await course_service.publish_course(session, architecture.id, instructor)
 
-        for course in (foundations, architecture):
+        for course in (foundations, docker, architecture):
             lessons = sum(len(m.assets) for m in course.modules)
             chars = sum(len(a.content or "") for m in course.modules for a in m.assets)
             print(
@@ -928,7 +1117,7 @@ async def main() -> None:
                 f"{lessons} lessons, {chars:,} chars"
             )
 
-    print("\nAcademy seeded. Enroll as any student; Foundations unlocks Architecture.")
+    print("\nAcademy seeded. Path: Foundations → Docker → Inside SmartCourse.")
 
 
 if __name__ == "__main__":
