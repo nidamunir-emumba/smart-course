@@ -80,6 +80,31 @@ async def get_course(session: AsyncSession, course_id: uuid.UUID) -> Course:
     return course
 
 
+async def learning_path(session: AsyncSession, course_id: uuid.UUID) -> list[Course]:
+    """The automatically derived learning path ending at `course_id`.
+
+    Walks prerequisites transitively (a prerequisite's prerequisites included),
+    depth-first, and returns courses in the order a student should take them —
+    target course last. Shared prerequisites appear once; cycles are guarded by
+    the visited set.
+    """
+    ordered: list[Course] = []
+    visited: set[uuid.UUID] = set()
+
+    async def visit(cid: uuid.UUID) -> None:
+        if cid in visited:
+            return
+        visited.add(cid)
+        course = await get_course(session, cid)
+        # Stable order: older prerequisites first (foundations before advanced).
+        for prereq in sorted(course.prerequisites, key=lambda c: c.created_at):
+            await visit(prereq.id)
+        ordered.append(course)
+
+    await visit(course_id)
+    return ordered
+
+
 async def list_courses(
     session: AsyncSession, *, viewer: User, limit: int = 50, offset: int = 0
 ) -> list[Course]:

@@ -64,9 +64,14 @@ async def enroll(
 
     if course.prerequisites:
         completed = await _completed_course_ids(session, student_id)
-        missing = [str(p.id) for p in course.prerequisites if p.id not in completed]
+        missing = [p.title for p in course.prerequisites if p.id not in completed]
         if missing:
-            raise PrerequisitesNotMetError(f"Unmet prerequisite course(s): {missing}")
+            titles = ", ".join(f"“{t}”" for t in missing)
+            raise PrerequisitesNotMetError(
+                f"Complete {titles} first — this course builds on it."
+                if len(missing) == 1
+                else f"Complete these courses first: {titles}."
+            )
 
     total_assets = sum(len(m.assets) for m in course.modules)
     enrollment = Enrollment(

@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import AssetType, CourseStatus
+from app.models.enums import AssetType, CourseStatus, EnrollmentStatus
 
 
 # ---------- Asset ----------
@@ -85,3 +85,20 @@ class CourseRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     modules: list[ModuleRead] = Field(default_factory=list)
+
+
+class LearningPathStep(BaseModel):
+    """One course in an automatically derived learning path (target last).
+
+    Student callers get their own completion/progress annotated; met is True
+    when the caller has a completed enrollment for this step.
+    """
+
+    course_id: uuid.UUID
+    title: str
+    description: str | None
+    course_status: CourseStatus
+    is_target: bool
+    met: bool = False
+    enrollment_status: EnrollmentStatus | None = None
+    percent_complete: float | None = None

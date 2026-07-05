@@ -143,3 +143,15 @@ export interface AppNotification {
 export interface UnreadCount {
   unread: number
 }
+
+// ── Learning paths ──────────────────────────────────────────────────────────
+export interface LearningPathStep {
+  course_id: string
+  title: string
+  description: string | null
+  course_status: CourseStatus
+  is_target: boolean
+  met: boolean
+  enrollment_status: EnrollmentStatus | null
+  percent_complete: number | null
+}

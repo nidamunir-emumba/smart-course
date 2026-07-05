@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_role
 from app.db.postgres import get_session
-from app.models.enums import UserRole
+from app.models.enums import EnrollmentStatus, UserRole
 from app.models.user import User
-from app.schemas.course import CourseCreate, CourseRead, CourseUpdate
+from app.schemas.course import CourseCreate, CourseRead, CourseUpdate, LearningPathStep
 from app.services import courses as course_service
+from app.services import enrollments as enrollment_service
 from app.services.exceptions import NotFoundError
 
 router = APIRouter()
@@ -50,6 +51,59 @@ async def get_course(
         # Don't leak the existence of unpublished courses to non-owners.
         raise NotFoundError(f"Course not found: {course_id}")
     return course
+
+
+@router.get("/{course_id}/path", response_model=list[LearningPathStep])
+async def get_learning_path(
+    course_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """The automatically derived learning path for a course (target last).
+
+    Prerequisites are resolved transitively — a prerequisite's own
+    prerequisites are included, in the order a student should take them.
+    Student callers get their completion/progress annotated on each step.
+    """
+    target = await course_service.get_course(session, course_id)
+    if not course_service.is_visible_to(target, user):
+        raise NotFoundError(f"Course not found: {course_id}")
+
+    path = await course_service.learning_path(session, course_id)
+
+    # For students, annotate each step with their best enrollment:
+    # completed beats active beats cancelled (history rows).
+    best: dict[uuid.UUID, tuple[EnrollmentStatus, float | None]] = {}
+    if user.role == UserRole.STUDENT:
+        rank = {
+            EnrollmentStatus.COMPLETED: 2,
+            EnrollmentStatus.ACTIVE: 1,
+            EnrollmentStatus.CANCELLED: 0,
+        }
+        for e in await enrollment_service.list_for_student(session, user.id):
+            current = best.get(e.course_id)
+            if current is None or rank[e.status] > rank[current[0]]:
+                best[e.course_id] = (
+                    e.status,
+                    e.progress.percent_complete if e.progress else None,
+                )
+
+    steps = []
+    for course in path:
+        status_, percent = best.get(course.id, (None, None))
+        steps.append(
+            LearningPathStep(
+                course_id=course.id,
+                title=course.title,
+                description=course.description,
+                course_status=course.status,
+                is_target=course.id == course_id,
+                met=status_ == EnrollmentStatus.COMPLETED,
+                enrollment_status=status_,
+                percent_complete=percent,
+            )
+        )
+    return steps
 
 
 @router.patch("/{course_id}", response_model=CourseRead)
