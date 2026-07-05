@@ -206,10 +206,82 @@ function BackgroundJobs() {
   )
 }
 
+/** Docker course · one computer, many boxes. */
+function DockerOneComputer() {
+  const boxes = [
+    ['api', 'the app'],
+    ['postgres', 'saves data'],
+    ['redis', 'fast memory'],
+    ['rabbitmq', 'to-do list'],
+  ]
+  return (
+    <svg viewBox="0 0 720 250" className="h-auto w-full" role="img"
+      aria-label="One computer runs many small boxes side by side: api, postgres, redis, rabbitmq. Each box holds one program.">
+      <rect x={16} y={40} width={688} height={160} rx={12} fill="none" stroke={PRIMARY} strokeWidth={1.5} />
+      <text x={32} y={30} fontSize={13} fontWeight={600} fill={INK} style={sans}>Your computer</text>
+      {boxes.map(([t, s], i) => (
+        <Box key={t} x={40 + i * 165} y={80} w={140} h={80} title={t} sub={s} />
+      ))}
+      <text x={360} y={230} textAnchor="middle" fontSize={12} fill={MUTED} style={mono}>
+        one computer, many boxes. each box holds one program.
+      </text>
+    </svg>
+  )
+}
+
+/** Docker course · one file lists all the boxes. */
+function DockerOneFile() {
+  return (
+    <svg viewBox="0 0 720 300" className="h-auto w-full" role="img"
+      aria-label="One file, docker-compose.yml, lists every box. One command starts them all.">
+      {/* the file */}
+      <rect x={30} y={40} width={230} height={190} rx={8} fill={SURFACE} stroke={LINE} strokeWidth={1.5} />
+      <text x={48} y={68} fontSize={12} fontWeight={600} fill={INK} style={mono}>docker-compose.yml</text>
+      {['- api', '- postgres', '- redis', '- rabbitmq'].map((line, i) => (
+        <text key={line} x={48} y={100 + i * 26} fontSize={13} fill={MUTED} style={mono}>{line}</text>
+      ))}
+      <text x={48} y={214} fontSize={11} fill={FAINT} style={mono}>the list of boxes</text>
+
+      <Arrow id="dof-a" d="M270,135 L360,135" color={PRIMARY} label="make up" labelX={278} labelY={126} />
+
+      {/* the running boxes */}
+      {['api', 'postgres', 'redis', 'rabbitmq'].map((t, i) => (
+        <Box key={t} x={380} y={44 + i * 52} w={300} h={42} title={t} />
+      ))}
+      <text x={360} y={288} textAnchor="middle" fontSize={12} fill={MUTED} style={mono}>
+        one file lists every box. one command starts them all.
+      </text>
+    </svg>
+  )
+}
+
+/** Docker course · same thing, two names. */
+function DockerTwoNames() {
+  return (
+    <svg viewBox="0 0 720 300" className="h-auto w-full" role="img"
+      aria-label="The same database has two names. From your laptop it is localhost:5432. From inside a Docker box it is postgres:5432.">
+      <Box x={470} y={110} w={210} h={72} title="postgres" sub="the database" stroke={PRIMARY} />
+
+      <Box x={40} y={40} w={230} h={56} title="You, on your laptop" />
+      <Arrow id="dtn-a1" d="M270,68 L470,132" color={PRIMARY} label="localhost:5432" labelX={286} labelY={92} />
+
+      <Box x={40} y={196} w={230} h={56} title="A box, inside Docker" />
+      <Arrow id="dtn-a2" d="M270,224 L470,160" color={ACCENT} label="postgres:5432" labelX={286} labelY={220} />
+
+      <text x={360} y={290} textAnchor="middle" fontSize={12} fill={MUTED} style={mono}>
+        same database. two names. the name depends on where you stand.
+      </text>
+    </svg>
+  )
+}
+
 const DIAGRAMS: Record<string, () => ReactElement> = {
   'request-lifecycle': RequestLifecycle,
   'system-map': SystemMap,
   'background-jobs': BackgroundJobs,
+  'docker-one-computer': DockerOneComputer,
+  'docker-one-file': DockerOneFile,
+  'docker-two-names': DockerTwoNames,
 }
 
 /** Marker syntax used inside lesson text: a paragraph of exactly `[diagram:name]`. */
