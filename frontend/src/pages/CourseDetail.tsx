@@ -174,9 +174,9 @@ interface LessonRowProps {
   onToggle: () => void
 }
 
-/** The completion check: empty circle → amber check. Amber is the achievement
- *  colour everywhere else (ring, certificate), so a finished lesson reads the
- *  same way. On a completed course the checks are locked — the tooltip says so. */
+/** The completion check: empty circle → green check (success colour — same
+ *  green as the completed ring and status badges). On a completed course the
+ *  checks are locked — the tooltip says so. */
 function LessonCheck({
   completed,
   canToggle,
@@ -199,8 +199,8 @@ function LessonCheck({
         locked ? 'cursor-not-allowed' : canToggle ? '' : 'cursor-default'
       }`}
       style={{
-        borderColor: completed ? 'var(--color-accent)' : 'var(--color-line)',
-        background: completed ? 'var(--color-accent-soft)' : 'transparent',
+        borderColor: completed ? 'var(--color-success)' : 'var(--color-line)',
+        background: completed ? 'var(--color-success-soft)' : 'transparent',
       }}
       onClick={(e) => {
         // Inside a <summary>: don't let the check also expand the lesson.
@@ -214,7 +214,7 @@ function LessonCheck({
           <path
             d="M1.5 5.5 4 8l4.5-6"
             fill="none"
-            stroke="var(--color-accent)"
+            stroke="var(--color-success)"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -225,16 +225,16 @@ function LessonCheck({
   )
 }
 
-/** Status marker on the right of a completed lesson row — amber, like every
- *  other achievement signal (ring, certificate, module ticks). */
+/** Status marker on the right of a completed lesson row — success green,
+ *  matching the completed ring and enrollment badges. */
 function DoneBadge() {
   return (
     <span
       className="badge shrink-0"
       style={{
-        color: 'var(--color-accent)',
-        borderColor: 'var(--color-accent)',
-        background: 'var(--color-accent-soft)',
+        color: 'var(--color-success)',
+        borderColor: 'var(--color-success)',
+        background: 'var(--color-success-soft)',
       }}
     >
       ✓ done
