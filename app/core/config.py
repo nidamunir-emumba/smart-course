@@ -43,6 +43,17 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     groq_api_key: str = ""
 
+    # Email notifications (sent by Celery tasks in app/tasks/notifications.py)
+    # "console" logs the rendered email — dev default, no provider needed.
+    # "smtp" sends through the server configured below.
+    email_backend: str = "console"  # console | smtp
+    email_from: str = "SmartCourse <no-reply@smartcourse.dev>"
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+
     # Observability
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "smartcourse-api"

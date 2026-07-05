@@ -12,11 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_role
 from app.db.postgres import get_session
-from app.models.enums import UserRole
+from app.models.enums import EnrollmentStatus, UserRole
 from app.models.user import User
-from app.services import enrollments as enrollment_service
-from app.services.exceptions import ForbiddenError
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentRead
+from app.services import courses as course_service
+from app.services import enrollments as enrollment_service
+from app.services import users as user_service
+from app.services.exceptions import ForbiddenError
+from app.tasks import dispatch
+from app.tasks.notifications import send_completion_congrats, send_course_welcome
 
 router = APIRouter()
 
@@ -38,7 +42,10 @@ async def enroll(
     user: User = Depends(require_role(UserRole.STUDENT)),
     session: AsyncSession = Depends(get_session),
 ):
-    return await enrollment_service.enroll(session, data, student_id=user.id)
+    enrollment = await enrollment_service.enroll(session, data, student_id=user.id)
+    course = await course_service.get_course(session, data.course_id)
+    dispatch.fire(send_course_welcome, user.email, user.full_name, course.title)
+    return enrollment
 
 
 @router.get("/{enrollment_id}", response_model=EnrollmentRead)
@@ -74,4 +81,22 @@ async def update_progress(
     # Only the owning student (or an admin) may advance progress.
     if user.role != UserRole.ADMIN and enrollment.student_id != user.id:
         raise ForbiddenError("You may only update your own progress")
-    return await enrollment_service.set_progress(session, enrollment_id, data.completed_assets)
+
+    # Capture as a scalar before the update: set_progress mutates this same
+    # mapped instance (identity map), so comparing objects after would lie.
+    was_active = enrollment.status == EnrollmentStatus.ACTIVE
+
+    updated = await enrollment_service.set_progress(session, enrollment_id, data.completed_assets)
+
+    # Congratulate exactly once — on the ACTIVE → COMPLETED transition.
+    if was_active and updated.status == EnrollmentStatus.COMPLETED and updated.certificate:
+        student = await user_service.get_user(session, updated.student_id)
+        course = await course_service.get_course(session, updated.course_id)
+        dispatch.fire(
+            send_completion_congrats,
+            student.email,
+            student.full_name,
+            course.title,
+            updated.certificate.serial,
+        )
+    return updated
