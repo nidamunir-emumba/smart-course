@@ -13,7 +13,7 @@ event-driven operations, durable workflows, and an AI learning assistant.
 
 - **Auth & access control** — JWT login/logout/me, bcrypt hashing, role-based gating (student / instructor / admin).
 - **Course management** — full CRUD plus lifecycle (draft → publish → unpublish → archive → delete) with ownership and visibility rules; module/asset editing.
-- **Enrollment & progress** — enroll with duplicate/limit/prerequisite enforcement (auto-derived learning paths with friendly guidance); per-lesson completion (check lessons off individually), derived progress, auto-completion and automatic certificate issuance; students can archive courses from their dashboard and unenroll (history retained, seat freed).
+- **Enrollment & progress** — enroll with duplicate/limit/prerequisite enforcement (auto-derived learning paths with friendly guidance); per-lesson completion (check lessons off individually), derived progress, auto-completion and automatic certificate issuance; students can archive courses from the dashboard or catalog and unenroll (history retained, seat freed).
 - **Notifications** — email (Celery: registration welcome, enrollment welcome, completion congratulations; console backend by default, SMTP via `EMAIL_BACKEND=smtp`) and an in-app feed (bell in the frontend header, unread counts, mark read) written transactionally with each event.
 - **Data & migrations** — full relational model (users, courses, modules, assets, enrollments, progress, certificates) with Alembic migrations.
 - **AI assistant (phase 1)** — ask questions about any lesson, answered in the browser, grounded in the course content (set ANTHROPIC_API_KEY; RAG retrieval upgrade is Phase 2).
