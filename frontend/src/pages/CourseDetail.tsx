@@ -104,7 +104,8 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
   const modules = [...course.modules].sort((a, b) => a.order_index - b.order_index)
   const completedIds = new Set(enrollment?.completed_asset_ids ?? [])
   // Toggling only makes sense while the enrollment is active; a completed
-  // course shows its checks as a record, not controls.
+  // course shows its checks as a locked record — and says so on hover.
+  const locked = enrollment != null && enrollment.status !== 'active'
   const canToggle = enrollment?.status === 'active'
 
   if (modules.length === 0) {
@@ -141,6 +142,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
                     asset={asset}
                     completed={enrollment ? completedIds.has(asset.id) : undefined}
                     canToggle={canToggle && !togglePending}
+                    locked={locked}
                     onToggle={() => onToggle(asset.id, completedIds.has(asset.id))}
                   />
                 ))}
@@ -159,22 +161,29 @@ interface LessonRowProps {
   asset: Asset
   completed?: boolean // undefined → not enrolled, no completion UI
   canToggle: boolean
+  locked: boolean // enrollment finished — checks are a record, not controls
   onToggle: () => void
 }
 
 /** The completion check: empty circle → amber check. Amber is the achievement
  *  colour everywhere else (ring, certificate), so a finished lesson reads the
- *  same way. */
-function LessonCheck({ completed, canToggle, onToggle }: Omit<LessonRowProps, 'asset'>) {
+ *  same way. On a completed course the checks are locked — the tooltip says so. */
+function LessonCheck({ completed, canToggle, locked, onToggle }: Omit<LessonRowProps, 'asset'>) {
   if (completed === undefined) return null
-  const label = completed ? 'Mark lesson not complete' : 'Mark lesson complete'
+  const label = locked
+    ? 'Course completed — the syllabus is locked as your record'
+    : completed
+      ? 'Mark lesson not complete'
+      : 'Mark lesson complete'
   return (
     <button
       type="button"
       aria-label={label}
-      title={canToggle ? label : undefined}
-      disabled={!canToggle}
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-default"
+      aria-disabled={!canToggle}
+      title={label}
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        locked ? 'cursor-not-allowed' : canToggle ? '' : 'cursor-default'
+      }`}
       style={{
         borderColor: completed ? 'var(--color-accent)' : 'var(--color-line)',
         background: completed ? 'var(--color-accent-soft)' : 'transparent',
@@ -202,9 +211,11 @@ function LessonCheck({ completed, canToggle, onToggle }: Omit<LessonRowProps, 'a
   )
 }
 
-function LessonRow({ asset, completed, canToggle, onToggle }: LessonRowProps) {
+function LessonRow({ asset, completed, canToggle, locked, onToggle }: LessonRowProps) {
   const body = asset.type === 'text' ? asset.content?.trim() : null
-  const check = <LessonCheck completed={completed} canToggle={canToggle} onToggle={onToggle} />
+  const check = (
+    <LessonCheck completed={completed} canToggle={canToggle} locked={locked} onToggle={onToggle} />
+  )
   const titleCls = `text-sm ${completed ? 'text-muted' : 'text-ink'}`
 
   // Text lessons expand to reveal their full body; other types link out.
@@ -366,9 +377,14 @@ function ProgressRail({ course, enrollment }: { course: Course; enrollment: Enro
       </div>
 
       {enrollment.status === 'completed' && enrollment.certificate ? (
-        <Link to={`/certificate/${enrollment.id}`} className="btn btn-primary">
-          View certificate
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link to={`/certificate/${enrollment.id}`} className="btn btn-primary">
+            View certificate
+          </Link>
+          <p className="text-center text-xs text-muted">
+            Completed — the syllabus is locked as your record.
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted">
