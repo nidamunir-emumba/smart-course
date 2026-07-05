@@ -173,6 +173,37 @@ async def uncomplete_lesson(
     return await get_enrollment(session, enrollment_id)
 
 
+async def unenroll(session: AsyncSession, enrollment_id: uuid.UUID) -> Enrollment:
+    """Cancel an ACTIVE enrollment. The row is kept as history (progress and
+    lesson completions included); the freed seat counts against the course's
+    enrollment limit again, and the student may re-enroll fresh later."""
+    enrollment = await get_enrollment(session, enrollment_id)
+    if enrollment.status != EnrollmentStatus.ACTIVE:
+        raise ConflictError(
+            "Only an active enrollment can be unenrolled"
+            if enrollment.status == EnrollmentStatus.CANCELLED
+            else "This course is completed — the certificate is yours to keep"
+        )
+    enrollment.status = EnrollmentStatus.CANCELLED
+    await session.commit()
+    return await get_enrollment(session, enrollment_id)
+
+
+async def set_archived(
+    session: AsyncSession, enrollment_id: uuid.UUID, archived: bool
+) -> Enrollment:
+    """Shelve/unshelve an enrollment on the student's dashboard (idempotent).
+    Pure presentation state: status and progress are untouched."""
+    enrollment = await get_enrollment(session, enrollment_id)
+    if archived and enrollment.archived_at is None:
+        enrollment.archived_at = _now()
+        await session.commit()
+    elif not archived and enrollment.archived_at is not None:
+        enrollment.archived_at = None
+        await session.commit()
+    return await get_enrollment(session, enrollment_id)
+
+
 # ---------- internal helpers ----------
 def _ordered_asset_ids(course: Course) -> list[uuid.UUID]:
     """All lesson (asset) ids in reading order: module order, then asset order."""

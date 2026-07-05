@@ -35,6 +35,7 @@ export function Catalog() {
 
   const percentByCourse = new Map<string, number>()
   for (const e of enrollmentsQuery.data ?? []) {
+    if (e.status === 'cancelled') continue // history rows don't show on cards
     percentByCourse.set(e.course_id, e.progress?.percent_complete ?? 0)
   }
 

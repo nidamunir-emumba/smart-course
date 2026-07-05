@@ -66,6 +66,7 @@ export interface Enrollment {
   course_id: string
   status: EnrollmentStatus
   completed_at: string | null
+  archived_at: string | null
   created_at: string
   progress: Progress | null
   certificate: Certificate | null

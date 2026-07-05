@@ -5,7 +5,7 @@ event-driven operations, durable workflows, and an AI learning assistant.
 
 > **Status:** Core platform implemented and tested. Auth, user/course/content
 > management, enrollment, progress tracking, certification, and notifications
-> (email + in-app) are fully working (51-test suite, in-memory SQLite — no
+> (email + in-app) are fully working (56-test suite, in-memory SQLite — no
 > Docker needed). The async/AI layer (Temporal workflows, Kafka events, RAG
 > assistant) is scaffolded.
 
@@ -13,11 +13,11 @@ event-driven operations, durable workflows, and an AI learning assistant.
 
 - **Auth & access control** — JWT login/logout/me, bcrypt hashing, role-based gating (student / instructor / admin).
 - **Course management** — full CRUD plus lifecycle (draft → publish → unpublish → archive → delete) with ownership and visibility rules; module/asset editing.
-- **Enrollment & progress** — enroll with duplicate/limit/prerequisite enforcement (auto-derived learning paths with friendly guidance); per-lesson completion (check lessons off individually), derived progress, auto-completion and automatic certificate issuance.
+- **Enrollment & progress** — enroll with duplicate/limit/prerequisite enforcement (auto-derived learning paths with friendly guidance); per-lesson completion (check lessons off individually), derived progress, auto-completion and automatic certificate issuance; students can archive courses from their dashboard and unenroll (history retained, seat freed).
 - **Notifications** — email (Celery: registration welcome, enrollment welcome, completion congratulations; console backend by default, SMTP via `EMAIL_BACKEND=smtp`) and an in-app feed (bell in the frontend header, unread counts, mark read) written transactionally with each event.
 - **Data & migrations** — full relational model (users, courses, modules, assets, enrollments, progress, certificates) with Alembic migrations.
 - **Infrastructure** — async PostgreSQL, structured logging, OpenTelemetry tracing, Prometheus metrics; pluggable LLM provider (Anthropic / OpenAI / Groq).
-- **Tests** — 51 tests covering the full synchronous domain end to end.
+- **Tests** — 56 tests covering the full synchronous domain end to end.
 
 ## Quick start
 

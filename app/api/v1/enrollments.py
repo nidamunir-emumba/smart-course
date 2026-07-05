@@ -135,6 +135,49 @@ async def update_progress(
     return updated
 
 
+async def _owned_enrollment(
+    session: AsyncSession, enrollment_id: uuid.UUID, user: User
+):
+    """Fetch + assert the caller owns this enrollment (or is an admin)."""
+    enrollment = await enrollment_service.get_enrollment(session, enrollment_id)
+    if user.role != UserRole.ADMIN and enrollment.student_id != user.id:
+        raise ForbiddenError("You may only manage your own enrollments")
+    return enrollment
+
+
+@router.post("/{enrollment_id}/unenroll", response_model=EnrollmentRead)
+async def unenroll(
+    enrollment_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Cancel an active enrollment; history is kept and the seat is freed."""
+    await _owned_enrollment(session, enrollment_id, user)
+    return await enrollment_service.unenroll(session, enrollment_id)
+
+
+@router.post("/{enrollment_id}/archive", response_model=EnrollmentRead)
+async def archive_enrollment(
+    enrollment_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Hide this enrollment from the student's default dashboard view."""
+    await _owned_enrollment(session, enrollment_id, user)
+    return await enrollment_service.set_archived(session, enrollment_id, True)
+
+
+@router.post("/{enrollment_id}/unarchive", response_model=EnrollmentRead)
+async def unarchive_enrollment(
+    enrollment_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Bring an archived enrollment back to the student's dashboard."""
+    await _owned_enrollment(session, enrollment_id, user)
+    return await enrollment_service.set_archived(session, enrollment_id, False)
+
+
 @router.post("/{enrollment_id}/lessons/{asset_id}/complete", response_model=EnrollmentRead)
 async def complete_lesson(
     enrollment_id: uuid.UUID,

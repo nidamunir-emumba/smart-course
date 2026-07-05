@@ -47,8 +47,13 @@ export function CourseDetail() {
   if (courseQuery.isError) return <ErrorState error={courseQuery.error} />
   const course = courseQuery.data!
 
+  // A student may hold history rows (cancelled) for this course — only a live
+  // enrollment counts, preferring completed (certificate) over active.
+  const rows = enrollmentsQuery.data?.filter((e) => e.course_id === course.id) ?? []
   const enrollment =
-    enrollmentsQuery.data?.find((e) => e.course_id === course.id) ?? null
+    rows.find((e) => e.status === 'completed') ??
+    rows.find((e) => e.status === 'active') ??
+    null
   const isOwner = user?.role === 'instructor' && user.id === course.instructor_id
 
   return (
@@ -442,6 +447,16 @@ function ProgressRail({ course, enrollment }: { course: Course; enrollment: Enro
       setError(err instanceof ApiError ? err.message : 'Could not update progress.'),
   })
 
+  const unenrollMutation = useMutation({
+    mutationFn: () => enrollmentsApi.unenroll(enrollment.id),
+    onSuccess: () => {
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['enrollments', user?.id] })
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : 'Could not unenroll.'),
+  })
+
   return (
     <div className="card flex flex-col gap-4 p-5">
       <div className="flex items-center gap-4">
@@ -479,6 +494,27 @@ function ProgressRail({ course, enrollment }: { course: Course; enrollment: Enro
       )}
 
       {error && <InlineError message={error} />}
+
+      {/* Leaving is allowed while active; a completed course keeps its certificate. */}
+      {enrollment.status === 'active' && (
+        <button
+          className="btn btn-danger btn-sm"
+          disabled={unenrollMutation.isPending}
+          onClick={() => {
+            if (
+              window.confirm(
+                'Unenroll from this course? Your progress is kept as history, ' +
+                  'but re-enrolling starts fresh.'
+              )
+            ) {
+              unenrollMutation.mutate()
+            }
+          }}
+        >
+          {unenrollMutation.isPending ? 'Unenrolling…' : 'Unenroll'}
+        </button>
+      )}
+
       <Link to="/dashboard" className="text-center font-mono text-xs text-faint hover:text-muted">
         ← back to my learning
       </Link>
