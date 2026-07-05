@@ -362,25 +362,25 @@ function LessonRow({
               </p>
             ))}
           </div>
-          {/* Finish the lesson right where you finished reading it. */}
-          {completed !== undefined && !locked && (
-            <div className="flex justify-end bg-paper/30 px-5 pb-4">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                disabled={!completed && !canToggle}
-                onClick={onCompleteContinue}
-              >
-                {completed
-                  ? hasNext
-                    ? 'Continue →'
-                    : 'Close'
-                  : hasNext
-                    ? 'Complete & continue →'
-                    : 'Complete lesson ✓'}
-              </button>
-            </div>
-          )}
+          {/* Finish (or just keep reading) right where you stopped. Completing
+              is only offered on an active enrollment; everyone else — completed
+              courses, browsing visitors — still gets the reading flow. */}
+          <div className="flex justify-end bg-paper/30 px-5 pb-4">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={completed === false && !locked && !canToggle}
+              onClick={onCompleteContinue}
+            >
+              {completed === false && !locked
+                ? hasNext
+                  ? 'Complete & continue →'
+                  : 'Complete lesson ✓'
+                : hasNext
+                  ? 'Continue →'
+                  : 'Close'}
+            </button>
+          </div>
           {/* Ask the assistant about this lesson, right where you're reading it. */}
           <AskLesson courseId={courseId} assetId={asset.id} />
         </details>
