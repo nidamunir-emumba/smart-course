@@ -31,6 +31,27 @@ make api                        # http://localhost:8000/docs
 
 Or run the whole thing in containers: `make up`.
 
+## Testing notifications
+
+The API only *queues* email tasks; the Celery worker executes them — run both:
+
+```bash
+make api     # terminal 1 — queues notification tasks on RabbitMQ
+make celery  # terminal 2 — the worker; rendered emails print here (EMAIL_BACKEND=console)
+```
+
+Register, enroll, or complete a course and the emails appear in the worker's log;
+in-app notifications appear under the bell in the frontend header. To exercise the
+real SMTP path without a mail provider, run [Mailpit](https://mailpit.axllent.org)
+and point the app at it:
+
+```bash
+docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+# .env: EMAIL_BACKEND=smtp  SMTP_HOST=localhost  SMTP_PORT=1025  SMTP_USE_TLS=false
+```
+
+Sent mail shows up at http://localhost:8025.
+
 ## Consoles
 
 | Service       | URL                     | Notes                        |
