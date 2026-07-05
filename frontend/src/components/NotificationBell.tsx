@@ -42,6 +42,14 @@ export function NotificationBell() {
     onSuccess: invalidate,
   })
 
+  // Opening the panel fetches the list fresh; refetch the badge alongside so
+  // the two can never disagree on screen (the badge otherwise polls at 30s).
+  useEffect(() => {
+    if (open) {
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] })
+    }
+  }, [open, queryClient])
+
   // Close on outside click / Escape.
   useEffect(() => {
     if (!open) return

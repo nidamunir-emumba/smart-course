@@ -169,6 +169,8 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
     onSuccess: () => {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['enrollments', user?.id] })
+      // Enrolling creates an in-app notification — refresh the bell badge too.
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : 'Could not enroll.'),
@@ -241,6 +243,8 @@ function ProgressRail({ course, enrollment }: { course: Course; enrollment: Enro
     onSuccess: () => {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['enrollments', user?.id] })
+      // Completing the course creates an in-app notification — refresh the bell.
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : 'Could not update progress.'),
