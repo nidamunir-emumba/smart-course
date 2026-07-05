@@ -203,7 +203,12 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
   }
   return (
     <div className="flex flex-col gap-4">
-      <p className="eyebrow">Syllabus · {modules.length} modules</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="eyebrow">Syllabus · {modules.length} modules</p>
+        {course.content_locked && (
+          <p className="font-mono text-xs text-faint">🔒 lesson content unlocks when you enroll</p>
+        )}
+      </div>
       {modules.map((module, mi) => {
         const done = module.assets.filter((a) => completedIds.has(a.id)).length
         const isCollapsed = collapsed.has(module.id)
@@ -252,6 +257,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
                       key={asset.id}
                       asset={asset}
                       courseId={course.id}
+                      contentLocked={course.content_locked}
                       completed={enrollment ? completedIds.has(asset.id) : undefined}
                       canToggle={canToggle && !togglePending}
                       locked={locked}
@@ -277,6 +283,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
 interface LessonRowProps {
   asset: Asset
   courseId: string
+  contentLocked: boolean
   completed?: boolean // undefined → not enrolled, no completion UI
   canToggle: boolean
   locked: boolean // enrollment finished — checks are a record, not controls
@@ -366,12 +373,42 @@ function LessonRow({
   onOpenChange,
   hasNext,
   onCompleteContinue,
+  contentLocked,
 }: LessonRowProps) {
   const body = asset.type === 'text' ? asset.content?.trim() : null
+  // A text lesson with no body on a locked course = withheld behind enrollment.
+  const gated = asset.type === 'text' && !body && contentLocked
   const check = (
     <LessonCheck completed={completed} canToggle={canToggle} locked={locked} onToggle={onToggle} />
   )
   const titleCls = `text-sm ${completed ? 'text-muted' : 'text-ink'}`
+
+  // Withheld lesson: show the title and a lock, expand to an enroll nudge.
+  if (gated) {
+    return (
+      <li id={`lesson-${asset.id}`} className="scroll-mt-20">
+        <details className="group" open={open}>
+          <summary
+            className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 hover:bg-paper/50"
+            onClick={(e) => {
+              e.preventDefault()
+              onOpenChange(!open)
+            }}
+          >
+            <span className="badge shrink-0">{asset.type}</span>
+            <span className="text-sm font-medium text-muted">{asset.title}</span>
+            <span className="ml-auto flex shrink-0 items-center gap-2 font-mono text-xs text-faint">
+              <span aria-hidden>🔒</span>
+              <span className="transition-transform group-open:rotate-90">›</span>
+            </span>
+          </summary>
+          <div className="border-t border-line bg-paper/30 px-5 py-4 text-sm text-muted">
+            Enroll to read this lesson — the syllabus is open, the content unlocks when you enroll.
+          </div>
+        </details>
+      </li>
+    )
+  }
 
   // Text lessons expand to reveal their full body; other types link out.
   if (body) {

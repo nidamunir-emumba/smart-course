@@ -85,6 +85,9 @@ class CourseRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     modules: list[ModuleRead] = Field(default_factory=list)
+    # True when lesson bodies were withheld because the viewer isn't enrolled;
+    # the UI shows an "enroll to start" wall instead of the content.
+    content_locked: bool = False
     # Prerequisite course ids — lets the UI discover learning-path chains.
     prerequisite_ids: list[uuid.UUID] = Field(default_factory=list)
 

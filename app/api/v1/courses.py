@@ -50,7 +50,34 @@ async def get_course(
     if not course_service.is_visible_to(course, user):
         # Don't leak the existence of unpublished courses to non-owners.
         raise NotFoundError(f"Course not found: {course_id}")
-    return course
+
+    out = CourseRead.model_validate(course)
+
+    # Lesson bodies are gated: the owner/admins always see them; a student only
+    # after enrolling. Everyone else gets the syllabus (titles + structure) with
+    # content withheld — enforced here, not just hidden in the UI.
+    if not await _may_read_content(session, course, user):
+        for module in out.modules:
+            for asset in module.assets:
+                if asset.type == "text":
+                    asset.content = None
+        out.content_locked = True
+    return out
+
+
+async def _may_read_content(session: AsyncSession, course, user: User) -> bool:
+    if user.role in (UserRole.ADMIN, UserRole.INSTRUCTOR) and course_service.is_visible_to(
+        course, user
+    ):
+        # Instructors browsing others' published courses still don't get bodies;
+        # only the owner does. Admins see everything.
+        if user.role == UserRole.ADMIN or course.instructor_id == user.id:
+            return True
+    if user.role == UserRole.STUDENT:
+        for e in await enrollment_service.list_for_student(session, user.id):
+            if e.course_id == course.id and e.status != EnrollmentStatus.CANCELLED:
+                return True
+    return False
 
 
 @router.get("/{course_id}/path", response_model=list[LearningPathStep])
