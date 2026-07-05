@@ -9,6 +9,9 @@ interface Props {
   course: Course
   percent?: number // student's completion, if enrolled
   index?: number // position in the grid, for a staggered reveal
+  archived?: boolean // enrollment shelved? undefined → not enrolled, no button
+  onToggleArchive?: () => void
+  archivePending?: boolean
 }
 
 // A short human-readable "catalog code" from the UUID — pure presentation.
@@ -16,7 +19,14 @@ function courseCode(id: string): string {
   return `CRS-${id.slice(0, 4).toUpperCase()}`
 }
 
-export function CourseCard({ course, percent, index = 0 }: Props) {
+export function CourseCard({
+  course,
+  percent,
+  index = 0,
+  archived,
+  onToggleArchive,
+  archivePending,
+}: Props) {
   const moduleCount = course.modules.length
   const assetCount = courseAssetCount(course)
 
@@ -56,6 +66,26 @@ export function CourseCard({ course, percent, index = 0 }: Props) {
               <span aria-hidden>·</span>
               <span>cap {course.enrollment_limit}</span>
             </>
+          )}
+          {/* Shelve without opening the course. Inside a Link, so don't navigate. */}
+          {onToggleArchive && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm ml-auto"
+              disabled={archivePending}
+              title={
+                archived
+                  ? 'Bring back to my learning'
+                  : 'Move out of the way — progress is kept'
+              }
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleArchive()
+              }}
+            >
+              {archived ? 'Unarchive' : 'Archive'}
+            </button>
           )}
         </div>
       </div>

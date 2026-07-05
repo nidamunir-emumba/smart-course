@@ -224,6 +224,23 @@ function LessonCheck({
   )
 }
 
+/** Status marker on the right of a completed lesson row — amber, like every
+ *  other achievement signal (ring, certificate, module ticks). */
+function DoneBadge() {
+  return (
+    <span
+      className="badge shrink-0"
+      style={{
+        color: 'var(--color-accent)',
+        borderColor: 'var(--color-accent)',
+        background: 'var(--color-accent-soft)',
+      }}
+    >
+      ✓ done
+    </span>
+  )
+}
+
 function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: LessonRowProps) {
   const body = asset.type === 'text' ? asset.content?.trim() : null
   const check = (
@@ -241,8 +258,11 @@ function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: 
             {check}
             <span className="badge shrink-0">{asset.type}</span>
             <span className={`${titleCls} font-medium`}>{asset.title}</span>
-            <span className="ml-auto font-mono text-xs text-faint transition-transform group-open:rotate-90">
-              ›
+            <span className="ml-auto flex shrink-0 items-center gap-2">
+              {completed && <DoneBadge />}
+              <span className="font-mono text-xs text-faint transition-transform group-open:rotate-90">
+                ›
+              </span>
             </span>
           </summary>
           <div className="space-y-4 border-t border-line bg-paper/30 px-5 py-5 text-[0.925rem] leading-7 text-ink/80">
@@ -264,16 +284,19 @@ function LessonRow({ asset, courseId, completed, canToggle, locked, onToggle }: 
       {check}
       <span className="badge shrink-0">{asset.type}</span>
       <span className={titleCls}>{asset.title}</span>
-      {asset.url && (
-        <a
-          href={asset.url}
-          target="_blank"
-          rel="noreferrer"
-          className="ml-auto font-mono text-xs text-primary hover:underline"
-        >
-          open ↗
-        </a>
-      )}
+      <span className="ml-auto flex shrink-0 items-center gap-2">
+        {completed && <DoneBadge />}
+        {asset.url && (
+          <a
+            href={asset.url}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-xs text-primary hover:underline"
+          >
+            open ↗
+          </a>
+        )}
+      </span>
     </li>
   )
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { coursesApi, enrollmentsApi } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
+import type { Enrollment } from '../api/types'
 import { CourseCard } from '../components/CourseCard'
 import { HeroArc } from '../components/CourseArc'
 import { Pagination } from '../components/Pagination'
@@ -13,6 +14,7 @@ const LIMIT = 12
 export function Catalog() {
   const { user, loading } = useAuth()
   const [offset, setOffset] = useState(0)
+  const queryClient = useQueryClient()
 
   const coursesQuery = useQuery({
     queryKey: ['courses', offset],
@@ -29,14 +31,25 @@ export function Catalog() {
     enabled: user?.role === 'student',
   })
 
+  // Shelve/unshelve straight from the card — no need to open the course.
+  const archiveMutation = useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      archived ? enrollmentsApi.unarchive(id) : enrollmentsApi.archive(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['enrollments', user?.id] }),
+  })
+
   // The backend gates all course data behind auth — greet anonymous visitors.
   if (loading) return <Spinner label="Loading…" />
   if (!user) return <Landing />
 
   const percentByCourse = new Map<string, number>()
+  const enrollmentByCourse = new Map<string, Enrollment>()
   for (const e of enrollmentsQuery.data ?? []) {
     if (e.status === 'cancelled') continue // history rows don't show on cards
     percentByCourse.set(e.course_id, e.progress?.percent_complete ?? 0)
+    // Prefer the completed row (certificate) over an active one.
+    const current = enrollmentByCourse.get(e.course_id)
+    if (!current || e.status === 'completed') enrollmentByCourse.set(e.course_id, e)
   }
 
   return (
@@ -70,14 +83,28 @@ export function Catalog() {
       ) : coursesQuery.data && coursesQuery.data.length > 0 ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {coursesQuery.data.map((course, i) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                percent={percentByCourse.get(course.id)}
-                index={i}
-              />
-            ))}
+            {coursesQuery.data.map((course, i) => {
+              const enrollment = enrollmentByCourse.get(course.id)
+              return (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  percent={percentByCourse.get(course.id)}
+                  index={i}
+                  archived={enrollment ? enrollment.archived_at !== null : undefined}
+                  onToggleArchive={
+                    enrollment
+                      ? () =>
+                          archiveMutation.mutate({
+                            id: enrollment.id,
+                            archived: enrollment.archived_at !== null,
+                          })
+                      : undefined
+                  }
+                  archivePending={archiveMutation.isPending}
+                />
+              )
+            })}
           </div>
           <Pagination
             offset={offset}
