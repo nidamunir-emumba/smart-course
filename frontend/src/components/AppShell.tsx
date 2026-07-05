@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { NotificationBell } from './NotificationBell'
 
 function navClass({ isActive }: { isActive: boolean }): string {
   return [
@@ -64,6 +65,7 @@ export function AppShell() {
           <div className="ml-auto flex items-center gap-3">
             {user ? (
               <>
+                <NotificationBell />
                 <div className="hidden text-right sm:block">
                   <p className="text-sm font-medium text-ink">{user.full_name}</p>
                   <p className="eyebrow">{user.role}</p>
