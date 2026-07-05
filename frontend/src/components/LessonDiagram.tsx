@@ -15,6 +15,7 @@ const PRIMARY = 'var(--color-primary)'
 const ACCENT = 'var(--color-accent)'
 const SURFACE = 'var(--color-surface)'
 const SUCCESS = 'var(--color-success)'
+const DANGER = 'var(--color-danger)'
 
 const mono = { fontFamily: 'var(--font-mono)' } as const
 const sans = { fontFamily: 'var(--font-display)' } as const
@@ -275,6 +276,56 @@ function DockerTwoNames() {
   )
 }
 
+/** Jobs course · the slow way vs the smart way. */
+function JobsSlowVsSmart() {
+  return (
+    <svg viewBox="0 0 720 320" className="h-auto w-full" role="img"
+      aria-label="The slow way: the app does the slow email itself and the person waits 3 seconds. The smart way: the app writes the job on a list and answers in a blink; a helper does the email later.">
+      {/* slow way */}
+      <text x={32} y={30} fontSize={13} fontWeight={600} fill={DANGER} style={sans}>The slow way</text>
+      <Box x={30} y={44} w={130} h={50} title="You click" stroke={PRIMARY} />
+      <Arrow id="js-a1" d="M160,69 L230,69" color={MUTED} />
+      <Box x={230} y={44} w={160} h={50} title="App sends email" sub="takes ~3 seconds" />
+      <Arrow id="js-a2" d="M390,69 L460,69" color={MUTED} />
+      <Box x={460} y={44} w={130} h={50} title="You wait 😖" stroke={DANGER} />
+      <text x={30} y={116} fontSize={11} fill={FAINT} style={mono}>the person stares at a spinner the whole time</text>
+
+      <line x1={30} y1={140} x2={690} y2={140} stroke={LINE} strokeWidth={1} />
+
+      {/* smart way */}
+      <text x={32} y={172} fontSize={13} fontWeight={600} fill={SUCCESS} style={sans}>The smart way</text>
+      <Box x={30} y={186} w={130} h={50} title="You click" stroke={PRIMARY} />
+      <Arrow id="js-b1" d="M160,211 L230,211" color={MUTED} />
+      <Box x={230} y={186} w={170} h={50} title="App writes a note" sub="on the to-do list" />
+      <Arrow id="js-b2" d="M400,211 L470,211" color={SUCCESS} />
+      <Box x={470} y={186} w={170} h={50} title="Done! 😀" sub="in a blink" stroke={SUCCESS} />
+      <Arrow id="js-b3" d="M315,236 L315,280" dashed color={MUTED} label="later, quietly" labelX={325} labelY={266} />
+      <Box x={230} y={280} w={170} h={40} title="Helper sends the email" />
+      <text x={430} y={304} fontSize={11} fill={FAINT} style={mono}>nobody is waiting on this part</text>
+    </svg>
+  )
+}
+
+/** Jobs course · the three helpers (post office model). */
+function JobsThreeParts() {
+  return (
+    <svg viewBox="0 0 720 250" className="h-auto w-full" role="img"
+      aria-label="Three parts: the app drops a note in the mailbox (the to-do list), and a helper picks it up and does the work.">
+      <Box x={30} y={90} w={160} h={70} title="The app" sub="drops off a note" stroke={PRIMARY} />
+      <Arrow id="jt-a1" d="M190,125 L280,125" color={PRIMARY} label="new job" labelX={196} labelY={116} />
+      <Box x={280} y={90} w={170} h={70} title="The to-do list" sub="holds notes safely" />
+      <Arrow id="jt-a2" d="M450,125 L540,125" color={PRIMARY} label="picks up" labelX={546} labelY={116} />
+      <Box x={540} y={90} w={160} h={70} title="The helper" sub="does the slow work" stroke={SUCCESS} />
+      <text x={360} y={210} textAnchor="middle" fontSize={12} fill={MUTED} style={mono}>
+        drop a note on the list · a helper picks it up and does it · nobody waits
+      </text>
+      <text x={360} y={232} textAnchor="middle" fontSize={11} fill={FAINT} style={mono}>
+        the note waits safely even if the helper is busy or asleep
+      </text>
+    </svg>
+  )
+}
+
 const DIAGRAMS: Record<string, () => ReactElement> = {
   'request-lifecycle': RequestLifecycle,
   'system-map': SystemMap,
@@ -282,6 +333,8 @@ const DIAGRAMS: Record<string, () => ReactElement> = {
   'docker-one-computer': DockerOneComputer,
   'docker-one-file': DockerOneFile,
   'docker-two-names': DockerTwoNames,
+  'jobs-slow-vs-smart': JobsSlowVsSmart,
+  'jobs-three-parts': JobsThreeParts,
 }
 
 /** Marker syntax used inside lesson text: a paragraph of exactly `[diagram:name]`. */
