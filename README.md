@@ -13,8 +13,6 @@ event-driven operations, durable workflows, and an AI learning assistant.
 
 ## What's working
 
-Concise and outcome-focused — suitable for a status update.
-
 - **Authentication & roles** — secure login (JWT + bcrypt) with role-based access for students, instructors, and admins.
 - **Course authoring & lifecycle** — create, edit, publish, and archive courses and lessons; lesson content is gated behind enrolment (syllabus public, bodies unlock on enrol — enforced server-side).
 - **Enrolment & progress** — enrolment with capacity, prerequisite, and duplicate rules; auto-generated learning paths; per-lesson completion, progress tracking, and automatic certificates at 100%; students can archive or unenrol (history retained).
