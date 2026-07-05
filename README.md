@@ -5,7 +5,7 @@ event-driven operations, durable workflows, and an AI learning assistant.
 
 > **Status:** Core platform implemented and tested. Auth, user/course/content
 > management, enrollment, progress tracking, certification, and notifications
-> (email + in-app) are fully working (68-test suite, in-memory SQLite — no
+> (email + in-app) are fully working (72-test suite, in-memory SQLite — no
 > Docker needed). The async/AI layer (Temporal workflows, Kafka events, RAG-grounded
 > assistant) is scaffolded.
 
@@ -18,7 +18,7 @@ event-driven operations, durable workflows, and an AI learning assistant.
 - **Data & migrations** — full relational model (users, courses, modules, assets, enrollments, progress, certificates) with Alembic migrations.
 - **AI assistant (phase 1)** — ask questions about any lesson, answered in the browser, grounded in the course content (set ANTHROPIC_API_KEY; RAG retrieval upgrade is Phase 2).
 - **Infrastructure** — async PostgreSQL, structured logging, OpenTelemetry tracing, Prometheus metrics; pluggable LLM provider (Anthropic / OpenAI / Groq).
-- **Tests** — 68 tests covering the full synchronous domain end to end.
+- **Tests** — 72 tests covering the full synchronous domain end to end.
 
 ## Quick start
 

@@ -131,7 +131,7 @@ export interface CourseUpdate {
 }
 
 // ── Notifications ───────────────────────────────────────────────────────────
-export type NotificationKind = 'welcome' | 'enrollment' | 'completion'
+export type NotificationKind = 'welcome' | 'enrollment' | 'completion' | 'course_update'
 
 export interface AppNotification {
   id: string

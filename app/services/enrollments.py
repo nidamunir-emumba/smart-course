@@ -23,6 +23,7 @@ from app.models.enums import CourseStatus, EnrollmentStatus, UserRole
 from app.models.lesson_completion import LessonCompletion
 from app.models.progress import Progress
 from app.schemas.enrollment import EnrollmentCreate
+from app.services import notifications as notification_service
 from app.services.courses import get_course
 from app.services.exceptions import (
     ConflictError,
@@ -101,6 +102,65 @@ async def enroll(
         await session.rollback()
         raise DuplicateEnrollmentError("Student is already actively enrolled in this course") from exc
     return await get_enrollment(session, enrollment.id)
+
+
+async def reconcile_after_content_change(session: AsyncSession, course: Course) -> int:
+    """Re-sync existing enrollments to the course's current lesson count.
+
+    Called when content becomes live again (republish). Policy:
+      - COMPLETED: frozen. Certificate is earned; percentage and status are NOT
+        touched, no email. If lessons were net-added, a soft in-app FYI only.
+      - ACTIVE: recompute total_assets (percentage becomes accurate — it drops
+        when a lesson is added); completed count is re-derived from surviving
+        completion rows. A net-added lesson triggers a "new lesson" in-app
+        notification. Never auto-completes or changes status.
+      - CANCELLED: ignored (history).
+
+    Returns the number of enrollments notified. Commits its own work.
+    """
+    real_total = sum(len(m.assets) for m in course.modules)
+    result = await session.execute(
+        select(Enrollment)
+        .where(Enrollment.course_id == course.id)
+        .options(selectinload(Enrollment.progress), selectinload(Enrollment.completions))
+        .execution_options(populate_existing=True)
+    )
+    notified = 0
+    for enrollment in result.scalars().all():
+        if enrollment.status == EnrollmentStatus.CANCELLED:
+            continue
+        progress = enrollment.progress
+        old_total = progress.total_assets if progress else 0
+        lessons_added = real_total > old_total
+
+        if enrollment.status == EnrollmentStatus.ACTIVE and progress is not None:
+            # Denominator follows the course; numerator follows surviving rows.
+            done = len(enrollment.completions)
+            progress.total_assets = real_total
+            progress.completed_assets = min(done, real_total)
+            progress.percent_complete = (
+                (progress.completed_assets / real_total * 100.0) if real_total else 0.0
+            )
+
+        if lessons_added:
+            note = (
+                "A new lesson was added — there's fresh material to work through."
+                if enrollment.status == EnrollmentStatus.ACTIVE
+                else "New content was added to a course you've completed — take a look if you like."
+            )
+            await notification_service.create(
+                session,
+                enrollment.student_id,
+                kind="course_update",
+                title=f"New lesson in {course.title}",
+                body=note,
+                link=f"/courses/{course.id}",
+                commit=False,
+            )
+            notified += 1
+
+    await session.commit()
+    return notified
 
 
 async def get_enrollment(session: AsyncSession, enrollment_id: uuid.UUID) -> Enrollment:
