@@ -326,6 +326,67 @@ function JobsThreeParts() {
   )
 }
 
+/** Watching course · three ways to see what the app is doing. */
+function ObserveThreeTools() {
+  const cols = [
+    ['Logs', 'the diary', 'what happened'],
+    ['Traces', 'the receipt', 'where the time went'],
+    ['Metrics', 'the gauges', 'is it healthy'],
+  ]
+  return (
+    <svg viewBox="0 0 720 210" className="h-auto w-full" role="img"
+      aria-label="Three ways to watch the app: logs are the diary of what happened, traces are the receipt showing where the time went, metrics are the gauges showing if it's healthy.">
+      {cols.map(([t, s1, s2], i) => (
+        <g key={t}>
+          <rect x={30 + i * 225} y={40} width={200} height={100} rx={10} fill={SURFACE} stroke={LINE} strokeWidth={1.5} />
+          <text x={130 + i * 225} y={78} textAnchor="middle" fontSize={16} fontWeight={600} fill={INK} style={sans}>{t}</text>
+          <text x={130 + i * 225} y={102} textAnchor="middle" fontSize={12} fill={PRIMARY} style={mono}>{s1}</text>
+          <text x={130 + i * 225} y={122} textAnchor="middle" fontSize={11} fill={FAINT} style={mono}>{s2}</text>
+        </g>
+      ))}
+      <text x={360} y={178} textAnchor="middle" fontSize={12} fill={MUTED} style={mono}>
+        three ways to see what the app is doing while it runs
+      </text>
+    </svg>
+  )
+}
+
+/** Watching course · one request, step by step — where the time went. */
+function TraceWaterfall() {
+  // time scale: 0..50 ms over x 210..660 (9px per ms)
+  const x = (ms: number) => 210 + ms * 9
+  const rows = [
+    ['check who you are', 0, 5, PRIMARY],
+    ['ask the database', 5, 45, ACCENT], // the long one
+    ['send the answer', 45, 50, PRIMARY],
+  ] as const
+  return (
+    <svg viewBox="0 0 720 250" className="h-auto w-full" role="img"
+      aria-label="One request broken into steps with time bars. Checking who you are took 5ms, asking the database took 40ms (the long bar), sending the answer took 5ms.">
+      <text x={30} y={28} fontSize={13} fontWeight={600} fill={INK} style={sans}>One request, step by step</text>
+      {rows.map(([label, start, end, color], i) => {
+        const y = 56 + i * 44
+        return (
+          <g key={label}>
+            <text x={30} y={y + 18} fontSize={12} fill={MUTED} style={mono}>{label}</text>
+            <rect x={x(start)} y={y} width={Math.max(x(end) - x(start), 3)} height={26} rx={5}
+              fill={color === ACCENT ? 'var(--color-accent-soft)' : SURFACE} stroke={color} strokeWidth={1.5} />
+            <text x={x(end) + 8} y={y + 18} fontSize={11} fill={FAINT} style={mono}>{end - start} ms</text>
+          </g>
+        )
+      })}
+      {/* time axis */}
+      <line x1={210} y1={196} x2={660} y2={196} stroke={LINE} strokeWidth={1} />
+      {[0, 10, 20, 30, 40, 50].map((ms) => (
+        <text key={ms} x={x(ms)} y={212} textAnchor="middle" fontSize={10} fill={FAINT} style={mono}>{ms}</text>
+      ))}
+      <text x={435} y={240} textAnchor="middle" fontSize={12} fill={MUTED} style={mono}>
+        the long bar is where the time went — here, asking the database
+      </text>
+    </svg>
+  )
+}
+
 const DIAGRAMS: Record<string, () => ReactElement> = {
   'request-lifecycle': RequestLifecycle,
   'system-map': SystemMap,
@@ -335,6 +396,8 @@ const DIAGRAMS: Record<string, () => ReactElement> = {
   'docker-two-names': DockerTwoNames,
   'jobs-slow-vs-smart': JobsSlowVsSmart,
   'jobs-three-parts': JobsThreeParts,
+  'observe-three-tools': ObserveThreeTools,
+  'trace-waterfall': TraceWaterfall,
 }
 
 /** Marker syntax used inside lesson text: a paragraph of exactly `[diagram:name]`. */
