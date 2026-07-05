@@ -10,6 +10,10 @@ import pytest
 
 from app.models.enums import UserRole
 from app.tasks import dispatch, emailer, notifications
+
+# Bound at import time — the genuine implementation, before the autouse
+# conftest fixture stubs dispatch.fire for the rest of the suite.
+from app.tasks.dispatch import fire as real_fire
 from tests.factories import make_course, make_user
 
 
@@ -116,6 +120,9 @@ async def test_completion_dispatches_congrats_exactly_once(client, session, sent
 
 async def test_broker_down_does_not_fail_request(client, monkeypatch):
     """dispatch.fire swallows broker errors — registration still returns 201."""
+    # Restore the real fire (conftest stubs it suite-wide) so the swallow
+    # path is actually exercised; then make the underlying delay explode.
+    monkeypatch.setattr(dispatch, "fire", real_fire)
 
     def boom(*args, **kwargs):
         raise ConnectionError("broker unavailable")

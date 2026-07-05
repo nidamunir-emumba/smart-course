@@ -7,6 +7,7 @@ pointed at Postgres by setting TEST_DATABASE_URL. Models are portable across bot
 import os
 from collections.abc import AsyncGenerator
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -17,6 +18,19 @@ from app.db.postgres import Base, get_session
 from app.main import app
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_task_dispatch(monkeypatch):
+    """Tests must never enqueue real Celery messages.
+
+    Endpoints fire notification tasks via dispatch.fire; without this stub,
+    every HTTP test that registers/enrolls/completes queues a real message to
+    the developer's local RabbitMQ, which later drains into their mail tool as
+    a flood of phantom emails. Tests that assert on dispatch (the `sent`
+    fixture in test_notifications.py) re-patch fire to capture calls instead.
+    """
+    monkeypatch.setattr("app.tasks.dispatch.fire", lambda task, *args: None)
 
 
 @pytest_asyncio.fixture
