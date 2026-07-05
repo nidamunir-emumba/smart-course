@@ -166,7 +166,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
       requestAnimationFrame(() =>
         document
           .getElementById(`lesson-${next.id}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       )
     }
   }
@@ -354,7 +354,7 @@ function LessonRow({
   if (body) {
     const paragraphs = body.split(/\n\s*\n/)
     return (
-      <li id={`lesson-${asset.id}`}>
+      <li id={`lesson-${asset.id}`} className="scroll-mt-20">
         <details className="group" open={open}>
           <summary
             className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 hover:bg-paper/50"
@@ -415,7 +415,7 @@ function LessonRow({
   }
 
   return (
-    <li id={`lesson-${asset.id}`} className="flex items-center gap-3 px-5 py-2.5">
+    <li id={`lesson-${asset.id}`} className="scroll-mt-20 flex items-center gap-3 px-5 py-2.5">
       {check}
       <span className="badge shrink-0">{asset.type}</span>
       <span className={titleCls}>{asset.title}</span>
