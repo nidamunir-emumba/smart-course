@@ -45,20 +45,26 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def enroll(
-    session: AsyncSession, data: EnrollmentCreate, student_id: uuid.UUID
-) -> Enrollment:
+async def validate_enrollment(
+    session: AsyncSession, student_id: uuid.UUID, course_id: uuid.UUID
+) -> Course:
+    """Check every enrollment rule (FR-1.3) without writing anything.
+
+    Used standalone by the durable-workflow path (the endpoint validates
+    synchronously so callers get 4xx errors immediately, then queues the
+    write), and by enroll() below as its precondition.
+    """
     await require_role(session, student_id, UserRole.STUDENT)
-    course = await get_course(session, data.course_id)  # loads modules/assets + prerequisites
+    course = await get_course(session, course_id)  # loads modules/assets + prerequisites
 
     if course.status != CourseStatus.READY:
         raise CourseNotPublishedError(f"Course {course.id} is not open for enrollment")
 
-    if await _active_enrollment(session, student_id, data.course_id) is not None:
+    if await _active_enrollment(session, student_id, course_id) is not None:
         raise DuplicateEnrollmentError("Student is already actively enrolled in this course")
 
     if course.enrollment_limit is not None:
-        active = await _active_count(session, data.course_id)
+        active = await _active_count(session, course_id)
         if active >= course.enrollment_limit:
             raise EnrollmentLimitReachedError("Course enrollment limit reached")
 
@@ -72,6 +78,13 @@ async def enroll(
                 if len(missing) == 1
                 else f"Complete these courses first: {titles}."
             )
+    return course
+
+
+async def enroll(
+    session: AsyncSession, data: EnrollmentCreate, student_id: uuid.UUID
+) -> Enrollment:
+    course = await validate_enrollment(session, student_id, data.course_id)
 
     total_assets = sum(len(m.assets) for m in course.modules)
     enrollment = Enrollment(

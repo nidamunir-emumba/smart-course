@@ -12,6 +12,7 @@ from temporalio.worker import Worker
 
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.workflows.activities import ENROLLMENT_ACTIVITIES
 from app.workflows.enrollment import EnrollmentWorkflow
 from app.workflows.publishing import ContentPublishingWorkflow
 
@@ -23,7 +24,7 @@ async def main() -> None:
         client,
         task_queue=settings.temporal_task_queue,
         workflows=[ContentPublishingWorkflow, EnrollmentWorkflow],
-        activities=[],  # TODO: register activity functions from the modules below.
+        activities=ENROLLMENT_ACTIVITIES,
     )
     await worker.run()
 

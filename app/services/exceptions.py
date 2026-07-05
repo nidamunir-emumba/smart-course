@@ -48,3 +48,9 @@ class AssistantUnavailableError(DomainError):
     """The LLM behind the assistant could not be reached/configured."""
 
     status_code = 503
+
+
+class EnrollmentQueueUnavailableError(DomainError):
+    """The durable enrollment pipeline (Temporal) could not be reached."""
+
+    status_code = 503

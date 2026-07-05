@@ -24,10 +24,15 @@ export function CourseDetail() {
     enabled: !!courseId,
   })
 
+  // Durable enrollment returns 202 before the row exists — while pending,
+  // poll the enrollments list until the workflow lands (or we time out).
+  const [pendingEnroll, setPendingEnroll] = useState(false)
+
   const enrollmentsQuery = useQuery({
     queryKey: ['enrollments', user?.id],
     queryFn: () => enrollmentsApi.forStudent(user!.id),
     enabled: user?.role === 'student',
+    refetchInterval: pendingEnroll ? 1200 : false,
   })
 
   // Toggle one lesson's completion; completing the last lesson can finish the
@@ -46,6 +51,22 @@ export function CourseDetail() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
+
+  // pendingEnroll resolves when the workflow's enrollment shows up; the
+  // timeout stops the poll if processing stalls (worker down, etc.).
+  const enrollmentArrived =
+    pendingEnroll &&
+    (enrollmentsQuery.data ?? []).some(
+      (e) => e.course_id === courseQuery.data?.id && e.status !== 'cancelled'
+    )
+  useEffect(() => {
+    if (enrollmentArrived) setPendingEnroll(false)
+  }, [enrollmentArrived])
+  useEffect(() => {
+    if (!pendingEnroll) return
+    const t = setTimeout(() => setPendingEnroll(false), 30_000)
+    return () => clearTimeout(t)
+  }, [pendingEnroll])
 
   if (courseQuery.isLoading) return <Spinner label="Loading course…" />
   if (courseQuery.isError) return <ErrorState error={courseQuery.error} />
@@ -96,6 +117,8 @@ export function CourseDetail() {
           isOwner={isOwner}
           canEnroll={user?.role === 'student'}
           enrollmentsLoading={user?.role === 'student' && enrollmentsQuery.isLoading}
+          pendingEnroll={pendingEnroll}
+          onEnrollPending={() => setPendingEnroll(true)}
         />
       </aside>
     </div>
@@ -442,9 +465,19 @@ interface RailProps {
   isOwner: boolean
   canEnroll: boolean
   enrollmentsLoading?: boolean
+  pendingEnroll?: boolean
+  onEnrollPending?: () => void
 }
 
-function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading }: RailProps) {
+function ActionRail({
+  course,
+  enrollment,
+  isOwner,
+  canEnroll,
+  enrollmentsLoading,
+  pendingEnroll,
+  onEnrollPending,
+}: RailProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [error, setError] = useState<string | null>(null)
@@ -461,11 +494,13 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
 
   const enrollMutation = useMutation({
     mutationFn: () => enrollmentsApi.enroll(course.id),
-    onSuccess: () => {
+    onSuccess: (res) => {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['enrollments', user?.id] })
       // Enrolling creates an in-app notification — refresh the bell badge too.
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      // 202 = queued on the durable workflow; poll until the row appears.
+      if (!('id' in res)) onEnrollPending?.()
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : 'Could not enroll.'),
@@ -522,10 +557,10 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
         <>
           <button
             className="btn btn-primary"
-            disabled={enrollMutation.isPending || enrollmentsLoading}
+            disabled={enrollMutation.isPending || enrollmentsLoading || pendingEnroll}
             onClick={() => enrollMutation.mutate()}
           >
-            {enrollMutation.isPending ? 'Enrolling…' : 'Enroll now'}
+            {enrollMutation.isPending || pendingEnroll ? 'Enrolling…' : 'Enroll now'}
           </button>
           {error && <InlineError message={error} />}
         </>
