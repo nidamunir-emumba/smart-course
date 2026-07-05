@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { coursesApi, courseAssetCount, enrollmentsApi } from '../api/endpoints'
@@ -118,7 +118,7 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
   // Expansion is controlled so "Complete & continue" can advance the reader
   // to the next lesson. Reading order: modules, then lessons within each.
   const [openId, setOpenId] = useState<string | null>(null)
-  // Modules collapse too — a set of collapsed module ids (all expanded by default).
+  // Modules collapse too — a set of collapsed module ids.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const toggleModule = (moduleId: string) =>
     setCollapsed((prev) => {
@@ -127,6 +127,22 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
       else next.add(moduleId)
       return next
     })
+
+  // Fully-completed modules start collapsed — attention goes to what's left.
+  // Runs once per enrollment (its data arrives async); manual toggles win after.
+  const collapsedInitFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!enrollment || collapsedInitFor.current === enrollment.id) return
+    collapsedInitFor.current = enrollment.id
+    const done = new Set(enrollment.completed_asset_ids)
+    setCollapsed(
+      new Set(
+        course.modules
+          .filter((m) => m.assets.length > 0 && m.assets.every((a) => done.has(a.id)))
+          .map((m) => m.id)
+      )
+    )
+  }, [enrollment, course.modules])
   const readingOrder = modules.flatMap((m) =>
     [...m.assets].sort((a, b) => a.order_index - b.order_index)
   )
