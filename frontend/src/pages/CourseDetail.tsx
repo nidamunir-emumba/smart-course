@@ -12,6 +12,7 @@ import { Spinner, ErrorState, InlineError } from '../components/Feedback'
 export function CourseDetail() {
   const { courseId } = useParams<{ courseId: string }>()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
 
   const courseQuery = useQuery({
     queryKey: ['course', courseId],
@@ -23,6 +24,23 @@ export function CourseDetail() {
     queryKey: ['enrollments', user?.id],
     queryFn: () => enrollmentsApi.forStudent(user!.id),
     enabled: user?.role === 'student',
+  })
+
+  // Toggle one lesson's completion; completing the last lesson can finish the
+  // course, which creates a notification — refresh the bell alongside.
+  const toggleMutation = useMutation({
+    mutationFn: ({ enrollmentId, assetId, completed }: {
+      enrollmentId: string
+      assetId: string
+      completed: boolean
+    }) =>
+      completed
+        ? enrollmentsApi.uncompleteLesson(enrollmentId, assetId)
+        : enrollmentsApi.completeLesson(enrollmentId, assetId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enrollments', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
   })
 
   if (courseQuery.isLoading) return <Spinner label="Loading course…" />
@@ -50,7 +68,15 @@ export function CourseDetail() {
           )}
         </div>
 
-        <Outline course={course} />
+        <Outline
+          course={course}
+          enrollment={enrollment}
+          onToggle={(assetId, completed) =>
+            enrollment &&
+            toggleMutation.mutate({ enrollmentId: enrollment.id, assetId, completed })
+          }
+          togglePending={toggleMutation.isPending}
+        />
       </div>
 
       {/* Side rail: the single action for this course */}
@@ -67,8 +93,20 @@ export function CourseDetail() {
   )
 }
 
-function Outline({ course }: { course: Course }) {
+interface OutlineProps {
+  course: Course
+  enrollment: Enrollment | null
+  onToggle: (assetId: string, completed: boolean) => void
+  togglePending: boolean
+}
+
+function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) {
   const modules = [...course.modules].sort((a, b) => a.order_index - b.order_index)
+  const completedIds = new Set(enrollment?.completed_asset_ids ?? [])
+  // Toggling only makes sense while the enrollment is active; a completed
+  // course shows its checks as a record, not controls.
+  const canToggle = enrollment?.status === 'active'
+
   if (modules.length === 0) {
     return (
       <p className="card px-5 py-8 text-center text-sm text-muted">
@@ -79,32 +117,95 @@ function Outline({ course }: { course: Course }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="eyebrow">Syllabus · {modules.length} modules</p>
-      {modules.map((module, mi) => (
-        <div key={module.id} className="card overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-line px-5 py-3">
-            <span className="font-mono text-sm text-primary">
-              {String(mi + 1).padStart(2, '0')}
-            </span>
-            <h3 className="font-display font-semibold text-ink">{module.title}</h3>
+      {modules.map((module, mi) => {
+        const done = module.assets.filter((a) => completedIds.has(a.id)).length
+        return (
+          <div key={module.id} className="card overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-line px-5 py-3">
+              <span className="font-mono text-sm text-primary">
+                {String(mi + 1).padStart(2, '0')}
+              </span>
+              <h3 className="font-display font-semibold text-ink">{module.title}</h3>
+              {enrollment && module.assets.length > 0 && (
+                <span className="ml-auto font-mono text-xs text-faint">
+                  {done}/{module.assets.length} done
+                </span>
+              )}
+            </div>
+            <ul className="divide-y divide-line">
+              {[...module.assets]
+                .sort((a, b) => a.order_index - b.order_index)
+                .map((asset) => (
+                  <LessonRow
+                    key={asset.id}
+                    asset={asset}
+                    completed={enrollment ? completedIds.has(asset.id) : undefined}
+                    canToggle={canToggle && !togglePending}
+                    onToggle={() => onToggle(asset.id, completedIds.has(asset.id))}
+                  />
+                ))}
+              {module.assets.length === 0 && (
+                <li className="px-5 py-2.5 text-sm text-faint">No lessons in this module.</li>
+              )}
+            </ul>
           </div>
-          <ul className="divide-y divide-line">
-            {[...module.assets]
-              .sort((a, b) => a.order_index - b.order_index)
-              .map((asset) => (
-                <LessonRow key={asset.id} asset={asset} />
-              ))}
-            {module.assets.length === 0 && (
-              <li className="px-5 py-2.5 text-sm text-faint">No lessons in this module.</li>
-            )}
-          </ul>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
-function LessonRow({ asset }: { asset: Asset }) {
+interface LessonRowProps {
+  asset: Asset
+  completed?: boolean // undefined → not enrolled, no completion UI
+  canToggle: boolean
+  onToggle: () => void
+}
+
+/** The completion check: empty circle → amber check. Amber is the achievement
+ *  colour everywhere else (ring, certificate), so a finished lesson reads the
+ *  same way. */
+function LessonCheck({ completed, canToggle, onToggle }: Omit<LessonRowProps, 'asset'>) {
+  if (completed === undefined) return null
+  const label = completed ? 'Mark lesson not complete' : 'Mark lesson complete'
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={canToggle ? label : undefined}
+      disabled={!canToggle}
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-default"
+      style={{
+        borderColor: completed ? 'var(--color-accent)' : 'var(--color-line)',
+        background: completed ? 'var(--color-accent-soft)' : 'transparent',
+      }}
+      onClick={(e) => {
+        // Inside a <summary>: don't let the check also expand the lesson.
+        e.preventDefault()
+        e.stopPropagation()
+        if (canToggle) onToggle()
+      }}
+    >
+      {completed && (
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+          <path
+            d="M1.5 5.5 4 8l4.5-6"
+            fill="none"
+            stroke="var(--color-accent)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </button>
+  )
+}
+
+function LessonRow({ asset, completed, canToggle, onToggle }: LessonRowProps) {
   const body = asset.type === 'text' ? asset.content?.trim() : null
+  const check = <LessonCheck completed={completed} canToggle={canToggle} onToggle={onToggle} />
+  const titleCls = `text-sm ${completed ? 'text-muted' : 'text-ink'}`
 
   // Text lessons expand to reveal their full body; other types link out.
   if (body) {
@@ -113,8 +214,9 @@ function LessonRow({ asset }: { asset: Asset }) {
       <li>
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 hover:bg-paper/50">
+            {check}
             <span className="badge shrink-0">{asset.type}</span>
-            <span className="text-sm font-medium text-ink">{asset.title}</span>
+            <span className={`${titleCls} font-medium`}>{asset.title}</span>
             <span className="ml-auto font-mono text-xs text-faint transition-transform group-open:rotate-90">
               ›
             </span>
@@ -133,8 +235,9 @@ function LessonRow({ asset }: { asset: Asset }) {
 
   return (
     <li className="flex items-center gap-3 px-5 py-2.5">
+      {check}
       <span className="badge shrink-0">{asset.type}</span>
-      <span className="text-sm text-ink">{asset.title}</span>
+      <span className={titleCls}>{asset.title}</span>
       {asset.url && (
         <a
           href={asset.url}
@@ -268,13 +371,9 @@ function ProgressRail({ course, enrollment }: { course: Course; enrollment: Enro
         </Link>
       ) : (
         <div className="flex flex-col gap-2">
-          <button
-            className="btn btn-ghost btn-sm"
-            disabled={progressMutation.isPending || completed >= total}
-            onClick={() => progressMutation.mutate(Math.min(total, completed + 1))}
-          >
-            Mark next lesson complete
-          </button>
+          <p className="text-xs text-muted">
+            Check off each lesson in the syllabus as you finish it.
+          </p>
           <button
             className="btn btn-primary btn-sm"
             disabled={progressMutation.isPending || completed >= total || total === 0}

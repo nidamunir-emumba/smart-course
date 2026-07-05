@@ -18,6 +18,7 @@ from app.models.enums import EnrollmentStatus, pg_enum
 if TYPE_CHECKING:
     from app.models.certificate import Certificate
     from app.models.course import Course
+    from app.models.lesson_completion import LessonCompletion
     from app.models.progress import Progress
     from app.models.user import User
 
@@ -57,3 +58,11 @@ class Enrollment(UUIDMixin, TimestampMixin, Base):
     certificate: Mapped["Certificate | None"] = relationship(
         back_populates="enrollment", cascade="all, delete-orphan", uselist=False
     )
+    completions: Mapped[list["LessonCompletion"]] = relationship(
+        back_populates="enrollment", cascade="all, delete-orphan"
+    )
+
+    @property
+    def completed_asset_ids(self) -> list[uuid.UUID]:
+        """Asset ids this student has finished (requires completions loaded)."""
+        return [c.asset_id for c in self.completions]

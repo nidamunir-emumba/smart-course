@@ -40,3 +40,5 @@ class EnrollmentRead(BaseModel):
     created_at: datetime
     progress: ProgressRead | None = None
     certificate: CertificateRead | None = None
+    # Which lessons this student has finished — lets the UI mark each one.
+    completed_asset_ids: list[uuid.UUID] = []

@@ -81,6 +81,46 @@ async def list_student_enrollments(
     return await enrollment_service.list_for_student(session, student_id)
 
 
+async def _authorize_progress_change(
+    session: AsyncSession, enrollment_id: uuid.UUID, user: User
+) -> bool:
+    """Authorize + capture pre-update status. Returns whether it was ACTIVE.
+
+    Captured as a scalar before the update: the service mutates this same
+    mapped instance (identity map), so comparing objects after would lie.
+    """
+    enrollment = await enrollment_service.get_enrollment(session, enrollment_id)
+    # Only the owning student (or an admin) may advance progress.
+    if user.role != UserRole.ADMIN and enrollment.student_id != user.id:
+        raise ForbiddenError("You may only update your own progress")
+    return enrollment.status == EnrollmentStatus.ACTIVE
+
+
+async def _fire_completion_side_effects(
+    session: AsyncSession, updated, was_active: bool
+) -> None:
+    """Congratulate exactly once — on the ACTIVE → COMPLETED transition."""
+    if not (was_active and updated.status == EnrollmentStatus.COMPLETED and updated.certificate):
+        return
+    student = await user_service.get_user(session, updated.student_id)
+    course = await course_service.get_course(session, updated.course_id)
+    await notification_service.create(
+        session,
+        student.id,
+        kind="completion",
+        title=f"Course complete: {course.title}",
+        body=f"Congratulations — your certificate is issued ({updated.certificate.serial}).",
+        link=f"/certificate/{updated.id}",
+    )
+    dispatch.fire(
+        send_completion_congrats,
+        student.email,
+        student.full_name,
+        course.title,
+        updated.certificate.serial,
+    )
+
+
 @router.post("/{enrollment_id}/progress", response_model=EnrollmentRead)
 async def update_progress(
     enrollment_id: uuid.UUID,
@@ -89,34 +129,33 @@ async def update_progress(
     session: AsyncSession = Depends(get_session),
 ):
     """Set the number of completed assets; auto-completes + issues a certificate at 100%."""
-    enrollment = await enrollment_service.get_enrollment(session, enrollment_id)
-    # Only the owning student (or an admin) may advance progress.
-    if user.role != UserRole.ADMIN and enrollment.student_id != user.id:
-        raise ForbiddenError("You may only update your own progress")
-
-    # Capture as a scalar before the update: set_progress mutates this same
-    # mapped instance (identity map), so comparing objects after would lie.
-    was_active = enrollment.status == EnrollmentStatus.ACTIVE
-
+    was_active = await _authorize_progress_change(session, enrollment_id, user)
     updated = await enrollment_service.set_progress(session, enrollment_id, data.completed_assets)
-
-    # Congratulate exactly once — on the ACTIVE → COMPLETED transition.
-    if was_active and updated.status == EnrollmentStatus.COMPLETED and updated.certificate:
-        student = await user_service.get_user(session, updated.student_id)
-        course = await course_service.get_course(session, updated.course_id)
-        await notification_service.create(
-            session,
-            student.id,
-            kind="completion",
-            title=f"Course complete: {course.title}",
-            body=f"Congratulations — your certificate is issued ({updated.certificate.serial}).",
-            link=f"/certificate/{updated.id}",
-        )
-        dispatch.fire(
-            send_completion_congrats,
-            student.email,
-            student.full_name,
-            course.title,
-            updated.certificate.serial,
-        )
+    await _fire_completion_side_effects(session, updated, was_active)
     return updated
+
+
+@router.post("/{enrollment_id}/lessons/{asset_id}/complete", response_model=EnrollmentRead)
+async def complete_lesson(
+    enrollment_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Mark one lesson complete; auto-completes the course + certificate at 100%."""
+    was_active = await _authorize_progress_change(session, enrollment_id, user)
+    updated = await enrollment_service.complete_lesson(session, enrollment_id, asset_id)
+    await _fire_completion_side_effects(session, updated, was_active)
+    return updated
+
+
+@router.delete("/{enrollment_id}/lessons/{asset_id}/complete", response_model=EnrollmentRead)
+async def uncomplete_lesson(
+    enrollment_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Unmark a completed lesson."""
+    await _authorize_progress_change(session, enrollment_id, user)
+    return await enrollment_service.uncomplete_lesson(session, enrollment_id, asset_id)
