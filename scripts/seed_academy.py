@@ -57,24 +57,9 @@ The app you are reading this lesson in right now is exactly such a system: a Rea
 """
 
 C1_LIFE_OF_REQUEST = """
-Let's trace what happened when you clicked this lesson open. Somewhere in the React code, a component asked for this course. That kicked off a chain — follow it top to bottom:
+Let's trace what happened when you clicked this lesson open. Somewhere in the React code, a component asked for this course. That kicked off the journey drawn below — the request travels down the left side, the response climbs back up the right:
 
-Your browser (React + fetch)
-    ↓  GET /api/v1/courses/… with an Authorization header
-Vite dev server (port 5173)
-    ↓  proxies /api requests onward
-FastAPI (port 8000) — the backend process
-    ↓  checks your token → figures out who you are
-    ↓  runs the endpoint function for "get course"
-    ↓  which asks the service layer for the course
-SQLAlchemy (the ORM)
-    ↓  turns Python into SQL: SELECT … FROM courses WHERE id = …
-PostgreSQL (port 5432) — the database
-    ↑  returns rows
-FastAPI
-    ↑  converts rows to JSON, sends 200 OK
-Your browser
-    ↑  React re-renders with the data
+[diagram:request-lifecycle]
 
 Before anything else, one clarification that saves endless confusion: FastAPI and SQLAlchemy are NOT separate stations the request travels between, and Python is not a place — it is the language everything on the backend is written in. FastAPI and SQLAlchemy are two Python libraries inside ONE running program, the same way React and axios are two JavaScript libraries inside one browser tab. Between "FastAPI" and "SQLAlchemy" in the chain above there is no network and no hand-off between systems — just ordinary function calls, in the same process, in nanoseconds. The whole middle of the diagram is one Python process wearing layers.
 
@@ -465,22 +450,7 @@ When you're done, tick this lesson complete — and watch what the platform does
 C2_MAP = """
 You finished Foundations, which means you can read every box in this diagram. This course is about the arrows. Here is the entire system you are using right now:
 
-    React SPA (Vite, port 5173)
-        ↓ HTTP + JWT
-    FastAPI (port 8000)
-        ↓ SQL (async)                → PostgreSQL — the source of truth
-        ↓ enqueue task               → RabbitMQ — the message broker
-        ↓ cache / dedupe             → Redis — fast ephemeral memory
-    Celery worker (separate process)
-        ↑ consumes tasks from RabbitMQ
-        → sends email (console or SMTP)
-    …and provisioned, awaiting Phase 2:
-        Temporal — durable multi-step workflows
-        Kafka — the event backbone
-        Qdrant + LLM — the AI assistant (RAG)
-        MongoDB — flexible content documents
-    …plus observability, watching everything:
-        OpenTelemetry → Jaeger (traces), Prometheus → Grafana (metrics)
+[diagram:system-map]
 
 The question this course keeps answering is: why so many pieces? A React app has one process; this thing has twenty containers. The reason is a principle you'll see restated in every module: each kind of work goes to the tool shaped for it.
 
@@ -588,18 +558,11 @@ There's a deeper reason than speed, though: coupling. If the API sent email inli
 
 So the pattern (and this is among the most load-bearing patterns in backend engineering): do the essential work now, queue the rest.
 
-    Registration request
-        → INSERT user row            (essential — in the transaction)
-        → INSERT notification row    (essential — same transaction)
-        → enqueue "send welcome email"  (side effect — fire and forget)
-        → 201 Created                (milliseconds after arrival)
-    …meanwhile, a completely different process:
-        → picks up the job, renders the email, talks SMTP for 3 seconds
-        → nobody waits; nobody notices
+[diagram:background-jobs]
 
 This project implements exactly that split, and you can now name every part: the enqueue is one line in the endpoint (dispatch.fire(send_registration_welcome, …)); the "somewhere" the job waits is RabbitMQ; the "different process" is a Celery worker.
 
-Notice one more subtlety in that sketch, because it's a real design decision in this codebase: the in-app notification (the bell) is an INSERT in the same transaction — guaranteed, atomic, can't be lost. The email is queued — best-effort, retried, but if RabbitMQ is down the request still succeeds and only a warning is logged (see app/tasks/dispatch.py, ~20 lines, worth reading in full). Two channels for the same event, two different reliability contracts, chosen on purpose. Interview-grade insight, that.
+Notice one more subtlety in that flow, because it's a real design decision in this codebase: the in-app notification (the bell) is an INSERT in the same transaction — guaranteed, atomic, can't be lost. The email is queued — best-effort, retried, but if RabbitMQ is down the request still succeeds and only a warning is logged (see app/tasks/dispatch.py, ~20 lines, worth reading in full). Two channels for the same event, two different reliability contracts, chosen on purpose. Interview-grade insight, that.
 """
 
 C2_JOBS_ANATOMY = """

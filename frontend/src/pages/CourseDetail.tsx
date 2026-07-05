@@ -9,6 +9,7 @@ import { CourseStatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/Progress'
 import { AskLesson } from '../components/AskLesson'
 import { LearningPath } from '../components/LearningPath'
+import { DIAGRAM_MARKER, LessonDiagram } from '../components/LessonDiagram'
 import { Spinner, ErrorState, InlineError } from '../components/Feedback'
 
 export function CourseDetail() {
@@ -372,11 +373,17 @@ function LessonRow({
             </span>
           </summary>
           <div className="space-y-4 border-t border-line bg-paper/30 px-5 py-5 text-[0.925rem] leading-7 text-ink/80">
-            {paragraphs.map((p, i) => (
-              <p key={i} className="max-w-[62ch] whitespace-pre-wrap">
-                {p}
-              </p>
-            ))}
+            {paragraphs.map((p, i) => {
+              // A paragraph of exactly [diagram:name] renders as a drawing.
+              const marker = p.trim().match(DIAGRAM_MARKER)
+              return marker ? (
+                <LessonDiagram key={i} name={marker[1]} />
+              ) : (
+                <p key={i} className="max-w-[62ch] whitespace-pre-wrap">
+                  {p}
+                </p>
+              )
+            })}
           </div>
           {/* Finish (or just keep reading) right where you stopped. Completing
               is only offered on an active enrollment; everyone else — completed
