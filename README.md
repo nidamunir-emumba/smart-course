@@ -31,6 +31,16 @@ make api                        # http://localhost:8000/docs
 
 Or run the whole thing in containers: `make up`.
 
+## Learn the stack — inside the app
+
+`make seed-academy` seeds a two-course learning path that teaches this project's
+own stack to a frontend developer, from zero: Python, FastAPI, SQLAlchemy,
+migrations, auth, Docker, Celery/RabbitMQ, and the full architecture — with
+quizzes, hands-on exercises, and a capstone design assignment. Course 1
+(*Backend Foundations for Frontend Developers*) is a prerequisite of course 2
+(*Inside SmartCourse*), so the platform itself enforces the path. Enroll as a
+student and study it in the browser.
+
 ## Testing notifications
 
 The API only *queues* email tasks; the Celery worker executes them — run both:

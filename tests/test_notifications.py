@@ -174,9 +174,11 @@ def test_registration_email_speaks_to_role(outbox):
     assert "enroll" in student_mail["body"].lower()
 
 
-def test_console_backend_logs_instead_of_sending(caplog):
+def test_console_backend_logs_instead_of_sending(caplog, monkeypatch):
     import logging
 
+    # Force the console backend — the developer's .env may say smtp.
+    monkeypatch.setattr(emailer.settings, "email_backend", "console")
     with caplog.at_level(logging.INFO, logger="app.tasks.emailer"):
         emailer.send_email("t@example.com", "Subject line", "Body text")
     assert any(
