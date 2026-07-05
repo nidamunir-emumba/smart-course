@@ -76,7 +76,13 @@ FastAPI
 Your browser
     ↑  React re-renders with the data
 
-Two things are worth pausing on.
+Before anything else, one clarification that saves endless confusion: FastAPI and SQLAlchemy are NOT separate stations the request travels between, and Python is not a place — it is the language everything on the backend is written in. FastAPI and SQLAlchemy are two Python libraries inside ONE running program, the same way React and axios are two JavaScript libraries inside one browser tab. Between "FastAPI" and "SQLAlchemy" in the chain above there is no network and no hand-off between systems — just ordinary function calls, in the same process, in nanoseconds. The whole middle of the diagram is one Python process wearing layers.
+
+Your own frontend works exactly like this. A click runs a React onClick handler, which calls axios, and when the response lands, React re-renders. You would never say the click "went from JavaScript to React to axios" — it is one JavaScript program, and React appears at the start AND the end only because it is the outermost layer: it kicks off the work and it presents the result. FastAPI plays that same outermost role on the backend: it unwraps the HTTP request on the way in, and wraps your function's return value into a JSON response on the way out. That is why it appears twice in the diagram — same library, entry and exit of the same onion.
+
+So count the actual trips: browser → API process (network hop one), API process → PostgreSQL and back (network hop two), then the response home. Everything else is in-process. And "turns Python into SQL" means exactly what Prisma does in JS-land: SQLAlchemy takes the Python expression select(Course).where(Course.id == …) and generates the SQL string that actually crosses the wire to the database.
+
+Two more things are worth pausing on.
 
 First: the layers. The endpoint (HTTP stuff) is separate from the service (business rules), which is separate from the models (database shape). This is the backend's version of separating components from hooks from API clients. When we read this project's code later, you'll see folders that map one-to-one onto these layers: app/api, app/services, app/models.
 

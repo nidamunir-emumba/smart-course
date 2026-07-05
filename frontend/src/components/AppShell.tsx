@@ -54,12 +54,9 @@ export function AppShell() {
                 My Courses
               </NavLink>
             )}
-            <span
-              className="cursor-not-allowed px-3 py-1.5 font-display text-sm font-medium text-faint"
-              title="AI assistant — not available yet (backend endpoint is stubbed)"
-            >
-              Assistant · soon
-            </span>
+            {/* The assistant lives inside lessons — open any text lesson and
+                ask about it there. A standalone assistant page arrives with
+                the Phase-2 RAG upgrade. */}
           </nav>
 
           <div className="ml-auto flex items-center gap-3">

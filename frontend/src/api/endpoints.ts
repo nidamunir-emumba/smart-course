@@ -3,6 +3,8 @@
 import { api } from './client'
 import type {
   AppNotification,
+  AskRequest,
+  AskResponse,
   LearningPathStep,
   Course,
   CourseCreate,
@@ -89,4 +91,9 @@ export const notificationsApi = {
   unreadCount: () => api.get<UnreadCount>('/notifications/unread-count'),
   markRead: (id: string) => api.post<AppNotification>(`/notifications/${id}/read`),
   markAllRead: () => api.post<UnreadCount>('/notifications/read-all'),
+}
+
+// ── AI assistant ────────────────────────────────────────────────────────────
+export const assistantApi = {
+  ask: (body: AskRequest) => api.post<AskResponse>('/assistant/qa', body),
 }

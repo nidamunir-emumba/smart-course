@@ -156,3 +156,14 @@ export interface LearningPathStep {
   enrollment_status: EnrollmentStatus | null
   percent_complete: number | null
 }
+
+// ── AI assistant ────────────────────────────────────────────────────────────
+export interface AskRequest {
+  course_id: string
+  asset_id?: string
+  question: string
+}
+
+export interface AskResponse {
+  answer: string
+}
