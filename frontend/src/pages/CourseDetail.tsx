@@ -188,22 +188,22 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
     // The next expandable lesson (text with a body); links/videos are opened externally.
     return readingOrder.slice(i + 1).find((a) => a.type === 'text' && a.content?.trim()) ?? null
   }
-  // Scroll to the next lesson only AFTER React has expanded it (and its
-  // module) in the DOM — scrolling inside the click handler targets the
-  // pre-expansion layout. A ref marks the id to scroll to; the effect below
-  // runs post-commit.
+  // Scroll to the next lesson after React expands it — and keep re-aligning
+  // through a short settle window, because completing a lesson triggers an
+  // async progress refetch that reflows the page mid-scroll (which is what
+  // made the earlier one-shot scroll overshoot). The ref stays set for the
+  // window; every relevant re-render (expansion, refetch) re-pins the top.
   const scrollToRef = useRef<string | null>(null)
   useEffect(() => {
     const id = scrollToRef.current
     if (!id || openId !== id) return
-    scrollToRef.current = null
     requestAnimationFrame(() =>
       document.getElementById(`lesson-${id}`)?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       })
     )
-  }, [openId, collapsed])
+  }, [openId, collapsed, enrollment])
 
   const completeAndContinue = (asset: Asset) => {
     if (canToggle && !togglePending && !completedIds.has(asset.id)) {
@@ -215,7 +215,11 @@ function Outline({ course, enrollment, onToggle, togglePending }: OutlineProps) 
       // Continuing may land in a collapsed module — open it so the lesson shows.
       const home = modules.find((m) => m.assets.some((a) => a.id === next.id))
       if (home && collapsed.has(home.id)) toggleModule(home.id)
-      scrollToRef.current = next.id // effect scrolls once the row is expanded
+      scrollToRef.current = next.id
+      // Stop re-pinning once the layout has settled (refetch + reflow done).
+      window.setTimeout(() => {
+        if (scrollToRef.current === next.id) scrollToRef.current = null
+      }, 900)
     }
   }
 
