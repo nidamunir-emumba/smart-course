@@ -21,7 +21,18 @@ export function AppShell() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-line bg-paper/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-3">
-          <NavLink to="/" className="flex items-baseline gap-2">
+          <NavLink to="/" className="flex items-center gap-2">
+            {/* Brand mark: the rising arc in miniature, echoing the hero figure. */}
+            <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden className="shrink-0">
+              <path
+                d="M3 17 C7 17 11 15 14 8"
+                fill="none"
+                stroke="var(--color-primary)"
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+              <circle cx="17" cy="6" r="3.5" fill="var(--color-accent-soft)" stroke="var(--color-accent)" strokeWidth={2} />
+            </svg>
             <span className="font-display text-xl font-bold tracking-tight text-ink">
               SmartCourse
             </span>

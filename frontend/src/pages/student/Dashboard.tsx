@@ -29,13 +29,26 @@ export function Dashboard() {
   const courseById = new Map<string, Course>()
   courseQueries.forEach((q) => q.data && courseById.set(q.data.id, q.data))
 
+  const active = enrollments.filter((e) => e.status === 'active').length
+  const completed = enrollments.filter((e) => e.status === 'completed').length
+  const certificates = enrollments.filter((e) => e.certificate).length
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="border-b border-line pb-6">
-        <p className="eyebrow mb-2">My learning</p>
-        <h1 className="font-display text-3xl font-bold text-ink">
-          Welcome back, {user?.full_name.split(' ')[0]}
-        </h1>
+      <div className="reveal flex flex-col gap-5 border-b border-line pb-6">
+        <div>
+          <p className="eyebrow mb-2">My learning</p>
+          <h1 className="font-display text-3xl font-bold text-ink">
+            Welcome back, {user?.full_name.split(' ')[0]}
+          </h1>
+        </div>
+        {enrollments.length > 0 && (
+          <dl className="flex flex-wrap gap-3">
+            <Stat label="In progress" value={active} />
+            <Stat label="Completed" value={completed} />
+            <Stat label="Certificates" value={certificates} accent />
+          </dl>
+        )}
       </div>
 
       {enrollmentsQuery.isLoading ? (
@@ -51,11 +64,15 @@ export function Dashboard() {
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-3">
-          {enrollments.map((e) => {
+          {enrollments.map((e, i) => {
             const course = courseById.get(e.course_id)
             const percent = e.progress?.percent_complete ?? 0
             return (
-              <div key={e.id} className="card flex items-center gap-4 p-4">
+              <div
+                key={e.id}
+                className="card reveal flex items-center gap-4 p-4"
+                style={{ animationDelay: `${Math.min(i, 8) * 0.05}s` }}
+              >
                 <ProgressRing percent={percent} size={52} stroke={6} />
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-center gap-2">
@@ -87,6 +104,21 @@ export function Dashboard() {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// Small drafting-style plate: a measured count with its label underneath.
+function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div className="card flex min-w-[7rem] flex-col gap-0.5 px-4 py-3">
+      <span
+        className="font-display text-2xl font-bold leading-none"
+        style={{ color: accent && value > 0 ? 'var(--color-accent)' : 'var(--color-ink)' }}
+      >
+        {value}
+      </span>
+      <span className="eyebrow">{label}</span>
     </div>
   )
 }
