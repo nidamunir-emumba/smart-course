@@ -37,6 +37,7 @@ class EnrollmentRead(BaseModel):
     course_id: uuid.UUID
     status: EnrollmentStatus
     completed_at: datetime | None
+    archived_at: datetime | None = None
     created_at: datetime
     progress: ProgressRead | None = None
     certificate: CertificateRead | None = None

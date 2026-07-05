@@ -49,6 +49,9 @@ class Enrollment(UUIDMixin, TimestampMixin, Base):
         nullable=False,
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Student-side shelving: hides the enrollment from their default dashboard
+    # view without touching status/progress. Reversible; NULL = not archived.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     student: Mapped["User"] = relationship(back_populates="enrollments")
     course: Mapped["Course"] = relationship(back_populates="enrollments")

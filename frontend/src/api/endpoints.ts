@@ -74,6 +74,9 @@ export const enrollmentsApi = {
     api.get<Enrollment[]>(`/enrollments/student/${studentId}`),
   setProgress: (id: string, completedAssets: number) =>
     api.post<Enrollment>(`/enrollments/${id}/progress`, { completed_assets: completedAssets }),
+  unenroll: (id: string) => api.post<Enrollment>(`/enrollments/${id}/unenroll`),
+  archive: (id: string) => api.post<Enrollment>(`/enrollments/${id}/archive`),
+  unarchive: (id: string) => api.post<Enrollment>(`/enrollments/${id}/unarchive`),
   completeLesson: (id: string, assetId: string) =>
     api.post<Enrollment>(`/enrollments/${id}/lessons/${assetId}/complete`),
   uncompleteLesson: (id: string, assetId: string) =>
