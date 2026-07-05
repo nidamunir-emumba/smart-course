@@ -1113,6 +1113,135 @@ JOBS = CourseCreate(
     ],
 )
 
+# ══════════════════════════════════════════════════════════════════════════════
+# COURSE · WATCHING THE APP, MADE SIMPLE  (after Jobs, before Inside SmartCourse)
+# ══════════════════════════════════════════════════════════════════════════════
+
+OB_WHY = """
+⏱ ~7 min · What you'll get: why an app needs a way to watch itself — and the three simple ways it does.
+
+Imagine your car had no dashboard. No speed, no fuel gauge, no little warning lights. It might drive fine — until one day it just stops, and you have no idea why. Was it fuel? The engine? You'd be guessing.
+
+An app is the same. It might run fine — until one day it's slow, or something breaks, and someone asks "why?" Without a way to look inside, you're guessing. Guessing wastes hours.
+
+So a good app watches itself. It leaves a trail of what it's doing, all the time, so that when a question comes up you can LOOK instead of guess. There are three kinds of trail, and each answers a different question:
+
+[diagram:observe-three-tools]
+
+1) Logs — the diary. A running list of little notes: "someone logged in," "sent a course," "couldn't reach email." It answers: what happened?
+
+2) Traces — the receipt. For one single request, it shows every step and how long each took. It answers: where did the time go?
+
+3) Metrics — the gauges. Numbers over time, like the car dashboard: how many requests, how fast, how many errors. It answers: is the app healthy right now?
+
+Together these three are called "watching the app" (the fancy word is observability, but you don't need it). This short course walks through each one, using the real tools already running in this app. By the end you'll open a screen and watch a request you just made travel through the system — timed, step by step.
+"""
+
+OB_LOGS = """
+⏱ ~7 min · What you'll get: logs — the app's diary. You've already seen these.
+
+Logs are the simplest of the three, and you've met them already in the Docker course. A log is just a line the app writes to say what it's doing. Line after line, it becomes a diary:
+
+    logged in: nida@example.com
+    sent course: Docker, Made Simple
+    queued job: welcome email
+    warning: could not reach email service, will retry
+
+You read them the way you did before:
+
+    docker compose logs -f api
+
+That shows the app box's diary, live. Do something in the app and watch new lines appear.
+
+What are logs good for? Answering "what happened, and in what order?" If a user says "I clicked enroll and got an error," you open the diary around that moment and read the story: it tried to enroll, it reached this step, then this went wrong. The diary rarely tells you WHY all by itself, but it tells you WHAT and WHEN — and that's usually enough to point you at the problem.
+
+One nice touch in this app: the diary is "structured" — every line is written in the same tidy shape (time, how serious it is, which part wrote it, the message). That sounds boring, but it means you can search the diary fast: "show me only the warnings," "show me only lines from the email part." A messy diary is hard to search; a tidy one is easy. That's the whole idea behind the words "structured logging" in the app's notes.
+
+Logs are your first stop when something's off. Next up is the tool that shows you where the TIME went — and it's the one that surprises people most.
+"""
+
+OB_TRACES = """
+⏱ ~9 min · What you'll get: traces — a receipt that shows where the time went. This is the fun one.
+
+Say a page feels slow. The diary (logs) tells you the request happened, but not why it dragged. For that you want a trace.
+
+A trace follows ONE request through the whole system and times every step, like tracking a package: picked up 2:00, reached the warehouse 2:05, out for delivery 2:20, delivered 2:40. You can instantly see where the time went — the long gap.
+
+Here's the same idea for a request in this app:
+
+[diagram:trace-waterfall]
+
+Read the picture: checking who you are was quick, sending the answer was quick — but asking the database took most of the time. Now you KNOW where to look. No guessing. If that database step is slow, that's your target; the other steps are fine.
+
+This app draws these pictures for real, using a tool called Jaeger. With the app running, open it in your browser:
+
+    http://localhost:16686
+
+Pick "api" from the list, hit search, and you'll see a list of recent requests. Click one and you get exactly the kind of stepped, timed picture above — the real journey of a real request you made. (After today's enrollment work, enrolling even shows its background steps here.)
+
+The one-line takeaway: logs tell you WHAT happened; a trace tells you WHERE THE TIME WENT. When something is slow, the trace points straight at the slow step so you fix the right thing.
+"""
+
+OB_METRICS = """
+⏱ ~8 min · What you'll get: metrics — the app's dashboard gauges. The health check at a glance.
+
+Logs are the diary (what happened). Traces are the receipt (where the time went). Metrics are the gauges — the car dashboard.
+
+A metric is just a number the app keeps, updated over and over: how many requests came in, how fast they were, how many errors, how many people are online. On their own, one number is boring. But watch a number OVER TIME and it tells a story: "requests were steady all morning, then spiked at noon," or "errors were near zero, then jumped ten minutes ago." A glance tells you if things are healthy or something just went wrong.
+
+Two tools work together for this in the app:
+• Prometheus — the collector. Every few seconds it writes down the app's current numbers. Over time it builds a history. It's at http://localhost:9090.
+• Grafana — the dashboard. It turns those numbers into graphs you can actually read — lines going up and down over time. It's at http://localhost:3000.
+
+Why gauges when you already have a diary? Because you can't read a million diary lines to know "is the app healthy right now?" A gauge answers that in one look. The diary is for digging into ONE thing that happened; the gauges are for watching the WHOLE thing stay healthy — and for noticing trouble early, before users even complain ("errors are climbing — let's look now").
+
+So the three fit together neatly: the gauges (metrics) tell you SOMETHING is wrong and roughly when; the receipt (a trace) shows you WHERE in a slow request; the diary (logs) tells you WHAT exactly happened. Health, then location, then detail. Next lesson: open all three on this very app.
+"""
+
+OB_TRYIT = """
+⏱ ~12 min · Your turn. Watch this very app, with all three tools. Make sure the app is running first.
+
+You've got the three ideas — diary, receipt, gauges. Now open the real screens. Have the app running (make up, or make infra + make api), and keep the browser handy.
+
+1) The diary (logs).
+   In a terminal: docker compose logs -f api
+   Now click around the app. Watch the notes appear — logging in, loading a course, and so on. This is the app narrating itself, live. (Ctrl-C to stop watching; the app keeps running.)
+
+2) The receipt (a trace).
+   Open http://localhost:16686 (that's Jaeger). Pick "api" in the Service box, click Find Traces. You'll see recent requests. Click one and read the stepped, timed picture — the real journey, with the slow step obvious. Do a fresh action in the app (load a course), then search again and find YOUR request.
+
+3) The gauges (metrics).
+   Open http://localhost:3000 (that's Grafana; it lets you look around without logging in). Find a dashboard and look at the graphs — requests over time, response speed. Click around the app for a minute, then watch the lines move. You're seeing the app's pulse.
+
+That's the whole toolkit. When something's ever slow or broken, you now know the move: glance at the gauges (is it healthy? when did it change?), open a trace (where's the slow step?), read the diary (what exactly happened?). Look, don't guess.
+
+Where to next: "Inside SmartCourse" is unlocked. Its big picture has a little strip at the bottom labeled "watching everything" — you'll now know exactly what those names (Jaeger, Prometheus, Grafana) are and why they're there.
+"""
+
+WATCHING = CourseCreate(
+    title="Watching the App, Made Simple",
+    description=(
+        "How do you see what an app is doing while it runs — so you can LOOK "
+        "instead of guess when it's slow or broken? Three plain ideas — the "
+        "diary (logs), the receipt (traces), the gauges (metrics) — taught "
+        "through this app's real screens (Jaeger, Grafana). Pictures, no "
+        "jargon. ~45 min. Sits between Jobs and Inside SmartCourse."
+    ),
+    modules=[
+        ModuleCreate(title="Why Watch?", order_index=0, assets=[
+            text("A car with no dashboard", OB_WHY, 0),
+        ]),
+        ModuleCreate(title="The Three Tools", order_index=1, assets=[
+            text("Logs — the diary", OB_LOGS, 0),
+            text("Traces — where the time went", OB_TRACES, 1),
+            text("Metrics — the gauges", OB_METRICS, 2),
+        ]),
+        ModuleCreate(title="Your Turn", order_index=2, assets=[
+            text("Watch this very app", OB_TRYIT, 0),
+        ]),
+    ],
+)
+
 ARCHITECTURE = CourseCreate(
     title="Inside SmartCourse: How This App Actually Works",
     description=(
@@ -1197,7 +1326,7 @@ async def main() -> None:
         )
         foundations = await course_service.publish_course(session, foundations.id, instructor)
 
-        # Chain: Foundations → Docker → Jobs → Inside SmartCourse.
+        # Chain: Foundations → Docker → Jobs → Watching → Inside SmartCourse.
         docker_spec = DOCKER.model_copy(update={"prerequisite_ids": [foundations.id]})
         docker = await course_service.create_course(
             session, docker_spec, instructor_id=instructor.id
@@ -1210,15 +1339,21 @@ async def main() -> None:
         )
         jobs = await course_service.publish_course(session, jobs.id, instructor)
 
+        watching_spec = WATCHING.model_copy(update={"prerequisite_ids": [jobs.id]})
+        watching = await course_service.create_course(
+            session, watching_spec, instructor_id=instructor.id
+        )
+        watching = await course_service.publish_course(session, watching.id, instructor)
+
         architecture_spec = ARCHITECTURE.model_copy(
-            update={"prerequisite_ids": [jobs.id]}
+            update={"prerequisite_ids": [watching.id]}
         )
         architecture = await course_service.create_course(
             session, architecture_spec, instructor_id=instructor.id
         )
         architecture = await course_service.publish_course(session, architecture.id, instructor)
 
-        for course in (foundations, docker, jobs, architecture):
+        for course in (foundations, docker, jobs, watching, architecture):
             lessons = sum(len(m.assets) for m in course.modules)
             chars = sum(len(a.content or "") for m in course.modules for a in m.assets)
             print(
@@ -1226,7 +1361,7 @@ async def main() -> None:
                 f"{lessons} lessons, {chars:,} chars"
             )
 
-    print("\nAcademy seeded. Path: Foundations → Docker → Jobs → Inside SmartCourse.")
+    print("\nAcademy seeded. Path: Foundations → Docker → Jobs → Watching → Inside SmartCourse.")
 
 
 if __name__ == "__main__":

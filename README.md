@@ -3,22 +3,26 @@
 Intelligent, large-scale course delivery backend for EduCorp — course management,
 event-driven operations, durable workflows, and an AI learning assistant.
 
-> **Status:** Core platform implemented and tested. Auth, user/course/content
-> management, enrollment, progress tracking, certification, and notifications
-> (email + in-app) are fully working (72-test suite, in-memory SQLite — no
-> Docker needed). The async/AI layer (Temporal workflows, Kafka events, RAG-grounded
-> assistant) is scaffolded.
+> **Status (plain English):** The core platform is built and tested (72 automated
+> checks). Students sign in, browse and enrol in courses, learn lesson by lesson,
+> and earn certificates; instructors build and publish courses. Enrolling runs as
+> a crash-proof background job, and an AI assistant answers questions about any
+> lesson. Still to come: the course-publishing pipeline, the event backbone, and
+> smarter AI search (all scaffolded).
 
 ## What's working
 
-- **Auth & access control** — JWT login/logout/me, bcrypt hashing, role-based gating (student / instructor / admin).
-- **Course management** — full CRUD plus lifecycle (draft → publish → unpublish → archive → delete) with ownership and visibility rules; module/asset editing; lesson content gated behind enrollment (syllabus open, bodies unlock on enroll — enforced in the API).
-- **Enrollment & progress** — enroll with duplicate/limit/prerequisite enforcement (auto-derived learning paths with a dedicated Paths page and friendly guidance); durable enrollment via Temporal when `ENROLLMENT_WORKFLOW_ENABLED` (workflow-id idempotency, Mongo analytics counters, step-level recovery — see the Temporal UI at :8088); per-lesson completion (check lessons off individually), derived progress, auto-completion and automatic certificate issuance; students can archive courses from the dashboard or catalog and unenroll (history retained, seat freed).
-- **Notifications** — email (Celery: registration welcome, enrollment welcome, completion congratulations; console backend by default, SMTP via `EMAIL_BACKEND=smtp`) and an in-app feed (bell in the frontend header, unread counts, mark read) written transactionally with each event.
-- **Data & migrations** — full relational model (users, courses, modules, assets, enrollments, progress, certificates) with Alembic migrations.
-- **AI assistant (phase 1)** — ask questions about any lesson, answered in the browser, grounded in the course content (set ANTHROPIC_API_KEY; RAG retrieval upgrade is Phase 2).
-- **Infrastructure** — async PostgreSQL, structured logging, OpenTelemetry tracing, Prometheus metrics; pluggable LLM provider (Anthropic / OpenAI / Groq).
-- **Tests** — 72 tests covering the full synchronous domain end to end.
+Plain-English points, good for a status update. Tech names are in light parentheses.
+
+- **Sign in with roles** — secure login for students, instructors, and admins; each role can do only what it should. (JWT + bcrypt)
+- **Build & run courses** — instructors create, edit, publish, and archive courses and lessons. Lesson content stays locked until a student enrols.
+- **Learn & track progress** — students enrol (with capacity limits, prerequisites, and no double-enrolling), follow auto-suggested learning paths, tick off lessons, and earn a certificate at 100%; they can archive or leave a course.
+- **Reliable enrolment** — enrolling runs as a background workflow that can't double-enrol, keeps a live count, and finishes itself even if a worker crashes mid-way. (Temporal; watch it at :8088)
+- **Notifications** — email and in-app alerts on sign-up, enrolment, and completion. (Celery for email)
+- **Ask-the-lesson AI** — students ask a question about a lesson and get an answer based on that lesson. (needs an AI key)
+- **Health monitoring** — the app records what it's doing so slowdowns and errors are easy to find: a diary (logs), per-request timings (traces → Jaeger), and live graphs (metrics → Grafana).
+- **Solid foundations** — fast database with automatic upgrades (PostgreSQL + Alembic), and a swappable AI provider (Anthropic / OpenAI / Groq).
+- **Tested** — 72 automated checks covering the whole core, run with no extra setup.
 
 ## Quick start
 
