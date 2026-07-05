@@ -14,6 +14,7 @@ const LIMIT = 12
 export function Catalog() {
   const { user, loading } = useAuth()
   const [offset, setOffset] = useState(0)
+  const [showArchived, setShowArchived] = useState(false)
   const queryClient = useQueryClient()
 
   const coursesQuery = useQuery({
@@ -82,30 +83,63 @@ export function Catalog() {
         <ErrorState error={coursesQuery.error} />
       ) : coursesQuery.data && coursesQuery.data.length > 0 ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {coursesQuery.data.map((course, i) => {
-              const enrollment = enrollmentByCourse.get(course.id)
-              return (
-                <CourseCard
-                  key={course.id}
-                  course={course}
-                  percent={percentByCourse.get(course.id)}
-                  index={i}
-                  archived={enrollment ? enrollment.archived_at !== null : undefined}
-                  onToggleArchive={
-                    enrollment
-                      ? () =>
-                          archiveMutation.mutate({
-                            id: enrollment.id,
-                            archived: enrollment.archived_at !== null,
-                          })
-                      : undefined
-                  }
-                  archivePending={archiveMutation.isPending}
-                />
-              )
-            })}
-          </div>
+          {(() => {
+            // Courses whose enrollment the student shelved are hidden by
+            // default — the filter chip brings them back.
+            const isArchived = (courseId: string) =>
+              enrollmentByCourse.get(courseId)?.archived_at != null
+            const archivedCount = coursesQuery.data.filter((c) => isArchived(c.id)).length
+            const visible = showArchived
+              ? coursesQuery.data
+              : coursesQuery.data.filter((c) => !isArchived(c.id))
+            return (
+              <>
+                {archivedCount > 0 && (
+                  <div className="-mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowArchived((v) => !v)}
+                    >
+                      {showArchived
+                        ? 'Hide archived'
+                        : `Show archived · ${archivedCount}`}
+                    </button>
+                  </div>
+                )}
+                {visible.length === 0 ? (
+                  <EmptyState title="Everything on this page is archived">
+                    Use “Show archived” above to see your shelved courses.
+                  </EmptyState>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {visible.map((course, i) => {
+                      const enrollment = enrollmentByCourse.get(course.id)
+                      return (
+                        <CourseCard
+                          key={course.id}
+                          course={course}
+                          percent={percentByCourse.get(course.id)}
+                          index={i}
+                          archived={enrollment ? enrollment.archived_at !== null : undefined}
+                          onToggleArchive={
+                            enrollment
+                              ? () =>
+                                  archiveMutation.mutate({
+                                    id: enrollment.id,
+                                    archived: enrollment.archived_at !== null,
+                                  })
+                              : undefined
+                          }
+                          archivePending={archiveMutation.isPending}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )
+          })()}
           <Pagination
             offset={offset}
             limit={LIMIT}

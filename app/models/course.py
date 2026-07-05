@@ -50,6 +50,12 @@ class Course(UUIDMixin, TimestampMixin, Base):
         secondaryjoin=lambda: Course.id == course_prerequisites.c.prerequisite_id,
     )
 
+    @property
+    def prerequisite_ids(self) -> list[uuid.UUID]:
+        """Prerequisite course ids (requires prerequisites loaded) — lets the
+        frontend discover learning-path chains from the course list."""
+        return [p.id for p in self.prerequisites]
+
 
 class Module(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "modules"

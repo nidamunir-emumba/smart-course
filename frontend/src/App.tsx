@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { RequireAuth } from './auth/RequireAuth'
 import { Catalog } from './pages/Catalog'
+import { Paths } from './pages/Paths'
 import { CourseDetail } from './pages/CourseDetail'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -17,6 +18,14 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Catalog />} />
+        <Route
+          path="paths"
+          element={
+            <RequireAuth>
+              <Paths />
+            </RequireAuth>
+          }
+        />
         <Route
           path="courses/:courseId"
           element={
