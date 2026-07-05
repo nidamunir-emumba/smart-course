@@ -230,15 +230,21 @@ FastAPI is this project's web framework — the Express. Here's a real endpoint 
     async def register_user(data: UserCreate, session: AsyncSession = Depends(get_session)):
         return await user_service.create_user(session, data)
 
-Read it against Express: app.post('/users', handler) becomes the @router.post decorator (a decorator is a function that wraps a function — think higher-order component). The handler is async, like yours.
+Read it against Express: app.post('/users', handler) becomes the @router.post decorator (a decorator is a function that wraps a function — think higher-order component). The handler is async, like yours. Now every piece of that line, one at a time.
 
-Now the FastAPI magic, and it's the part Express makes you do by hand:
+• The empty string "" is the path. Routers are mounted under a prefix — app/api/router.py mounts this file at prefix="/users", and everything under /api/v1 — so "" means "at my router's root": /api/v1 + /users + "" = POST /api/v1/users. It's exactly an Express sub-router: users.post('/', handler) then app.use('/api/v1/users', users). The "" plays the role of that '/'.
 
-• data: UserCreate — because the parameter is typed as a Pydantic schema, FastAPI parses the JSON body, validates it, and hands you a typed object. Invalid body? The caller gets a 422 and your code never runs. No req.body, no manual checks.
+• status_code=201 — FastAPI's default success status is 200, but REST convention (from the HTTP lesson) says a POST that creates something returns 201 Created. Declared once in the decorator, instead of Express's res.status(201) on every response.
 
-• response_model=UserRead — the output contract. Whatever your function returns is filtered to exactly these fields. This is why the API never leaks hashed_password even though the User object has one: UserRead doesn't declare it, so it's stripped.
+• data: UserCreate vs response_model=UserRead — the same resource, traveling in opposite directions, and the placement tells you which is which. Parameters (line 2) are INPUTS: UserCreate is the JSON body the client sends — email, full_name, role, password. Decorator metadata (line 1) describes the OUTPUT: UserRead is what the client gets back — id, created_at, is_active… and no password field at all. They differ on purpose: the client must SEND a password but must never RECEIVE one (even hashed — UserRead doesn't declare it, so FastAPI strips it); the client can't send an id, the server generates it. In TypeScript you'd write two interfaces — CreateUserRequest and UserResponse — never one for both. The Create/Read suffixes in this codebase are exactly that convention.
+
+• Because data is typed as a Pydantic schema, FastAPI parses the body, validates it, and hands you a typed object. Invalid body? The caller gets a 422 and your code never runs. No req.body, no manual checks.
+
+• session: AsyncSession = Depends(get_session) — a database connection, INJECTED into the handler. That "= Depends(...)" is not a default value; it's a marker meaning "before running this, call get_session() and pass me the result" — like a React hook giving a component the database without prop-drilling. This is dependency injection, and it's the entire subject of the next lesson — park it for now.
 
 • Path and query parameters follow the same trick: declare course_id: uuid.UUID in the signature and FastAPI extracts it from /courses/{course_id}, converting and validating the type. A limit: int = Query(20, ge=1, le=100) gives you a validated ?limit= with defaults and bounds — this exact line paginates the notifications feed you use in this app.
+
+The pattern to internalize: the signature IS the contract. Everything Express makes you write inside the handler body — parse, validate, status, response shaping — FastAPI reads from the declaration.
 
 And the killer feature: because everything is typed, FastAPI generates interactive docs from your code. With the stack running, open http://localhost:8000/docs — every endpoint in this project, executable from the browser, request/response schemas included. It's Storybook for your API, for free, always in sync.
 """
