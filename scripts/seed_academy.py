@@ -1010,6 +1010,105 @@ DOCKER = CourseCreate(
     ],
 )
 
+# ══════════════════════════════════════════════════════════════════════════════
+# COURSE · JOBS FOR LATER, MADE SIMPLE  (after Docker, before Inside SmartCourse)
+# ══════════════════════════════════════════════════════════════════════════════
+
+JB_WHY = """
+⏱ ~7 min · What you'll get: why an app should NOT do slow things right away.
+
+Picture a coffee shop. You order a coffee. Imagine the cashier walked away to grind the beans, steam the milk, and make your whole drink before taking the next person's order. The line would crawl. Everyone would wait for one drink at a time.
+
+Real shops don't do that. The cashier takes your order in a few seconds, writes it on a cup, puts the cup on the counter, and takes the next person. A different worker — the barista — makes the drinks from those cups. The line moves fast, and the coffee still gets made.
+
+An app has the exact same choice. Some things are fast: save a row, answer "ok, done." Some things are slow: send an email can take a few seconds, and sometimes hangs much longer. If the app does the slow thing right away, the person just sits and waits, staring at a spinner.
+
+[diagram:jobs-slow-vs-smart]
+
+So good apps do what the coffee shop does: do the quick part now, write the slow part on a to-do list, and answer right away. A separate worker does the slow part later. The person never waits for it.
+
+That's the whole idea of "jobs for later." Fast thing now, slow thing on a list, worker handles the list. The rest of this short course is just: what the list is, who the worker is, and why this makes the app both faster AND tougher.
+"""
+
+JB_PARTS = """
+⏱ ~8 min · What you'll get: the three simple parts, named plainly.
+
+Back to the coffee shop. There were three things: the cashier, the cup-on-the-counter, and the barista. Jobs-for-later has the same three, and that's really all of it.
+
+[diagram:jobs-three-parts]
+
+1) The app — like the cashier. It takes what you want, does the fast bit, and instead of doing the slow bit, it writes a note: "send a welcome email to this person." Then it says "done!" to you and moves on.
+
+2) The to-do list — like the cup on the counter. It's a place that holds notes safely until someone picks them up. Its real name in this app is RabbitMQ, but you can just think "the to-do list" or "the mailbox." The important thing: a note put here does not get lost. Even if everything is busy, the note waits.
+
+3) The worker — like the barista. It's a separate program whose only job is: look at the list, take a note, do what it says, done, take the next note. In this app it's called the Celery worker. It is allowed to be slow — nobody is waiting on it — so it can take its time, and even try again if something fails.
+
+That's the machine. App drops a note → the list holds it → the worker does it. Three parts. If you remember the coffee shop, you remember the whole thing.
+
+(There's also a small fast helper called Redis in the mix — think of it as scratch paper the worker can use. Don't worry about it; it's not the main idea.)
+"""
+
+JB_TOUGH = """
+⏱ ~8 min · What you'll get: the two big wins — faster AND tougher — in plain terms.
+
+You already saw the first win: speed. The app answers in a blink because it doesn't wait for the slow stuff. Good. But there's a second win that matters just as much, and it surprises people.
+
+The second win is toughness. Here's the story.
+
+Say the app did the email itself, right away. Now imagine the email service is down for ten minutes. What happens? People can't even sign up — because signing up tries to send an email, and that part is broken, so the whole sign-up breaks. One broken helper takes down something important.
+
+Now the smart way. The app writes "send welcome email" on the list and says "done!" The email service being down doesn't matter to the person signing up — they're already done. The note just waits on the list. When the email service comes back, the worker picks the note up and sends it. Nobody was blocked. Nothing was lost.
+
+That's the deal, and it's worth saying out loud: the important thing (you signed up, it's saved) happens right away and for sure. The nice-to-have thing (an email arrives) happens soon, and is allowed to be slow or retried — but it can never break the important thing.
+
+This app is careful about that line. When it can't even reach the to-do list, it shrugs, writes a small warning in its notes, and still says "done!" to you — because your sign-up matters more than the email. Fast because it doesn't wait; tough because a broken helper can't drag the main thing down with it.
+"""
+
+JB_TRYIT = """
+⏱ ~10 min · Your turn. Watch a real job travel from click to worker, in this app.
+
+Time to see it happen. You'll need two terminal windows open in the project.
+
+1) Start the worker (the barista).
+   In terminal one, run: make celery
+   Leave it open where you can see it. This is the worker, watching the to-do list. Right now it's idle — no notes yet.
+
+2) Make a job happen.
+   In the app, register a new throwaway account (any email). The moment you do, snap your eyes to the worker terminal. Within a second you'll see it wake up and print the welcome email it just "sent." That note went: app → to-do list → worker → done. You just watched the coffee shop work.
+   (In everyday setup the email is only printed, not really mailed — perfect for seeing it without needing a real mail service.)
+
+3) See the toughness for yourself.
+   Stop the worker (press Ctrl-C in terminal one). Now enroll in a course in the app. Notice: the app works perfectly — you're enrolled, everything's fine — even though the worker is off. The email note is just sitting on the list, waiting.
+   Now start the worker again (make celery). Watch it immediately pick up the waiting note and handle it. The job was delayed, never lost. That's the whole promise, proven with your own hands.
+
+If those three clicked, you've got it: fast now, slow later, and a broken helper can't hurt the main thing.
+
+Where to next: the "Inside SmartCourse" course is unlocked, and its background-jobs part will now feel like review — you already know the cashier, the counter, and the barista by their real names (the app, RabbitMQ, and the Celery worker).
+"""
+
+JOBS = CourseCreate(
+    title="Jobs for Later, Made Simple",
+    description=(
+        "Why doesn't an app do slow things right away? A coffee-shop-simple "
+        "course on background jobs, taught through this app's own email flow: "
+        "the fast part now, the slow part on a to-do list, a worker for later — "
+        "making the app both faster and tougher. No jargon, with pictures. "
+        "~45 min. Sits between Docker and Inside SmartCourse."
+    ),
+    modules=[
+        ModuleCreate(title="The Coffee Shop", order_index=0, assets=[
+            text("Why not do slow things now?", JB_WHY, 0),
+            text("The three simple parts", JB_PARTS, 1),
+        ]),
+        ModuleCreate(title="The Second Win", order_index=1, assets=[
+            text("Faster and tougher", JB_TOUGH, 0),
+        ]),
+        ModuleCreate(title="Your Turn", order_index=2, assets=[
+            text("Watch a real job travel", JB_TRYIT, 0),
+        ]),
+    ],
+)
+
 ARCHITECTURE = CourseCreate(
     title="Inside SmartCourse: How This App Actually Works",
     description=(
@@ -1094,22 +1193,28 @@ async def main() -> None:
         )
         foundations = await course_service.publish_course(session, foundations.id, instructor)
 
-        # Docker sits between Foundations and Architecture: Foundations → Docker → Inside.
+        # Chain: Foundations → Docker → Jobs → Inside SmartCourse.
         docker_spec = DOCKER.model_copy(update={"prerequisite_ids": [foundations.id]})
         docker = await course_service.create_course(
             session, docker_spec, instructor_id=instructor.id
         )
         docker = await course_service.publish_course(session, docker.id, instructor)
 
+        jobs_spec = JOBS.model_copy(update={"prerequisite_ids": [docker.id]})
+        jobs = await course_service.create_course(
+            session, jobs_spec, instructor_id=instructor.id
+        )
+        jobs = await course_service.publish_course(session, jobs.id, instructor)
+
         architecture_spec = ARCHITECTURE.model_copy(
-            update={"prerequisite_ids": [docker.id]}
+            update={"prerequisite_ids": [jobs.id]}
         )
         architecture = await course_service.create_course(
             session, architecture_spec, instructor_id=instructor.id
         )
         architecture = await course_service.publish_course(session, architecture.id, instructor)
 
-        for course in (foundations, docker, architecture):
+        for course in (foundations, docker, jobs, architecture):
             lessons = sum(len(m.assets) for m in course.modules)
             chars = sum(len(a.content or "") for m in course.modules for a in m.assets)
             print(
@@ -1117,7 +1222,7 @@ async def main() -> None:
                 f"{lessons} lessons, {chars:,} chars"
             )
 
-    print("\nAcademy seeded. Path: Foundations → Docker → Inside SmartCourse.")
+    print("\nAcademy seeded. Path: Foundations → Docker → Jobs → Inside SmartCourse.")
 
 
 if __name__ == "__main__":
