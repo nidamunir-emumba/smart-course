@@ -44,6 +44,11 @@ export function AppShell() {
             <NavLink to="/" end className={navClass}>
               Catalog
             </NavLink>
+            {user && (
+              <NavLink to="/paths" className={navClass}>
+                Paths
+              </NavLink>
+            )}
             {user?.role === 'student' && (
               <NavLink to="/dashboard" className={navClass}>
                 My Learning

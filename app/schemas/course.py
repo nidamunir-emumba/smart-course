@@ -85,6 +85,8 @@ class CourseRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     modules: list[ModuleRead] = Field(default_factory=list)
+    # Prerequisite course ids — lets the UI discover learning-path chains.
+    prerequisite_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class LearningPathStep(BaseModel):
