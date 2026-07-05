@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { coursesApi, courseAssetCount, enrollmentsApi } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
-import type { Course, Enrollment } from '../api/types'
+import type { Asset, Course, Enrollment } from '../api/types'
 import { CourseStatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/Progress'
 import { Spinner, ErrorState, InlineError } from '../components/Feedback'
@@ -91,20 +91,7 @@ function Outline({ course }: { course: Course }) {
             {[...module.assets]
               .sort((a, b) => a.order_index - b.order_index)
               .map((asset) => (
-                <li key={asset.id} className="flex items-center gap-3 px-5 py-2.5">
-                  <span className="badge shrink-0">{asset.type}</span>
-                  <span className="text-sm text-ink">{asset.title}</span>
-                  {asset.url && (
-                    <a
-                      href={asset.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ml-auto font-mono text-xs text-primary hover:underline"
-                    >
-                      open ↗
-                    </a>
-                  )}
-                </li>
+                <LessonRow key={asset.id} asset={asset} />
               ))}
             {module.assets.length === 0 && (
               <li className="px-5 py-2.5 text-sm text-faint">No lessons in this module.</li>
@@ -113,6 +100,52 @@ function Outline({ course }: { course: Course }) {
         </div>
       ))}
     </div>
+  )
+}
+
+function LessonRow({ asset }: { asset: Asset }) {
+  const body = asset.type === 'text' ? asset.content?.trim() : null
+
+  // Text lessons expand to reveal their full body; other types link out.
+  if (body) {
+    const paragraphs = body.split(/\n\s*\n/)
+    return (
+      <li>
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 hover:bg-paper/50">
+            <span className="badge shrink-0">{asset.type}</span>
+            <span className="text-sm font-medium text-ink">{asset.title}</span>
+            <span className="ml-auto font-mono text-xs text-faint transition-transform group-open:rotate-90">
+              ›
+            </span>
+          </summary>
+          <div className="max-w-none space-y-3 border-t border-line bg-paper/30 px-5 py-4 text-sm leading-relaxed text-muted">
+            {paragraphs.map((p, i) => (
+              <p key={i} className="whitespace-pre-wrap">
+                {p}
+              </p>
+            ))}
+          </div>
+        </details>
+      </li>
+    )
+  }
+
+  return (
+    <li className="flex items-center gap-3 px-5 py-2.5">
+      <span className="badge shrink-0">{asset.type}</span>
+      <span className="text-sm text-ink">{asset.title}</span>
+      {asset.url && (
+        <a
+          href={asset.url}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto font-mono text-xs text-primary hover:underline"
+        >
+          open ↗
+        </a>
+      )}
+    </li>
   )
 }
 
