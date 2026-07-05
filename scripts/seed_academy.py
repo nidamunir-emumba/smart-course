@@ -877,9 +877,13 @@ Then one command reads that list and starts every box for you, in the right orde
 
 [diagram:docker-one-file]
 
-The two commands you'll use most:
-• make infra — starts the helper boxes (database, memory, and so on) so you can run the app.
-• make up — starts everything, the whole app, in boxes.
+The two commands you'll use most both start boxes from that same list. The difference is WHICH boxes — and whether the app itself runs in a box or on your own computer.
+
+• make infra — starts only the HELPER boxes (the database, the fast memory, the to-do list, and so on). It does NOT start the app. Instead you run the app yourself on your own computer (with make api), and your app talks to those helper boxes. You'd want this while you're CHANGING the app's code: running it on your own machine means the moment you edit a file, it restarts and you see the change right away. (Kitchen picture: make infra sets up the kitchen — fridge, stove, ovens all on — but you stand at the counter and cook, so you can taste and tweak as you go.)
+
+• make up — starts EVERYTHING, including a box for the app itself. Now the app runs in a box too, just like the helpers. You'd want this when you just want the whole thing running and aren't editing code — one command, all up. It's also closest to how it runs on a real server. (Kitchen picture: make up runs the whole restaurant on its own — chef-in-a-box and all. You're not cooking; it just runs.)
+
+So, in one line: make infra = "start the stuff my app needs, I'll run the app myself." make up = "start the whole thing, app and all."
 
 And to stop it all and clean up:
 • make down — stops the boxes and removes them.
