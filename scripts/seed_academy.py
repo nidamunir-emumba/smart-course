@@ -1065,7 +1065,11 @@ Now the smart way. The app writes "send welcome email" on the list and says "don
 
 That's the deal, and it's worth saying out loud: the important thing (you signed up, it's saved) happens right away and for sure. The nice-to-have thing (an email arrives) happens soon, and is allowed to be slow or retried — but it can never break the important thing.
 
-This app is careful about that line. When it can't even reach the to-do list, it shrugs, writes a small warning in its notes, and still says "done!" to you — because your sign-up matters more than the email. Fast because it doesn't wait; tough because a broken helper can't drag the main thing down with it.
+This app is careful about that line. So what happens if even the to-do list itself is down, and the app can't drop the note off at all? It does NOT try to stash the email somewhere else — it simply drops that one email (it won't be sent), scribbles a single warning line in its own diary — "couldn't hand off the welcome email, the to-do list looks down" — and still says "done!" to you.
+
+Two different notes, worth keeping straight: the email job would have gone on the to-do list (that's the part that failed). The warning goes in the app's own diary — its logs, the very thing the "Watching the App" course is about — which lives on the app's side and needs nothing external. The important stuff (your account, your sign-up) was already saved straight to the database, which never touches the to-do list at all. So one welcome email is lost, and nothing that matters is. Fast because it doesn't wait; tough because a broken helper can't drag the main thing down with it.
+
+(A fair question: isn't losing the email bad? For a welcome email, no — best-effort is fine. But some jobs must NOT be lost. That's exactly why the newer enrolment flow uses a sturdier engine — Temporal — instead of this drop-on-failure path: same app, two levels of care, chosen on purpose.)
 """
 
 JB_TRYIT = """
