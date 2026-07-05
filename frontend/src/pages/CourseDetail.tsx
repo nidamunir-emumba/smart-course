@@ -68,6 +68,18 @@ export function CourseDetail() {
     return () => clearTimeout(t)
   }, [pendingEnroll])
 
+  // Content is gated per-enrollment: once a live enrollment exists but the
+  // cached course still has bodies withheld, refetch it so lessons unlock
+  // without a manual page refresh (covers the inline and durable paths).
+  const hasLiveEnrollment = (enrollmentsQuery.data ?? []).some(
+    (e) => e.course_id === courseQuery.data?.id && e.status !== 'cancelled'
+  )
+  useEffect(() => {
+    if (hasLiveEnrollment && courseQuery.data?.content_locked) {
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] })
+    }
+  }, [hasLiveEnrollment, courseQuery.data?.content_locked, courseId, queryClient])
+
   if (courseQuery.isLoading) return <Spinner label="Loading course…" />
   if (courseQuery.isError) return <ErrorState error={courseQuery.error} />
   const course = courseQuery.data!
