@@ -3,6 +3,7 @@
 import { api } from './client'
 import type {
   AppNotification,
+  LearningPathStep,
   Course,
   CourseCreate,
   CourseUpdate,
@@ -37,6 +38,7 @@ export const coursesApi = {
   list: (limit = 50, offset = 0) =>
     api.get<Course[]>(`/courses?limit=${limit}&offset=${offset}`),
   get: (id: string) => api.get<Course>(`/courses/${id}`),
+  path: (id: string) => api.get<LearningPathStep[]>(`/courses/${id}/path`),
   create: (body: CourseCreate) => api.post<Course>('/courses', body),
   update: (id: string, body: CourseUpdate) => api.patch<Course>(`/courses/${id}`, body),
   publish: (id: string) => api.post<Course>(`/courses/${id}/publish`),

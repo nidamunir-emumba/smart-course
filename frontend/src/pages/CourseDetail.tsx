@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { coursesApi, courseAssetCount, enrollmentsApi } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
-import type { Asset, Course, Enrollment } from '../api/types'
+import type { Asset, Course, Enrollment, LearningPathStep } from '../api/types'
 import { CourseStatusBadge } from '../components/StatusBadge'
 import { ProgressRing } from '../components/Progress'
 import { Spinner, ErrorState, InlineError } from '../components/Feedback'
@@ -278,6 +278,14 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
 
   const totalAssets = courseAssetCount(course)
 
+  // The automatically derived learning path (prerequisites, transitively).
+  const pathQuery = useQuery({
+    queryKey: ['course-path', course.id],
+    queryFn: () => coursesApi.path(course.id),
+  })
+  const path = pathQuery.data ?? []
+  const unmetPrereqs = path.filter((s) => !s.is_target && !s.met)
+
   const enrollMutation = useMutation({
     mutationFn: () => enrollmentsApi.enroll(course.id),
     onSuccess: () => {
@@ -306,6 +314,7 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
   }
 
   // Not enrolled.
+  const blocked = canEnroll && unmetPrereqs.length > 0
   return (
     <div className="card flex flex-col gap-4 p-5">
       <div className="flex items-center justify-between">
@@ -318,8 +327,24 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
         <ProgressRing percent={0} size={48} stroke={5} showLabel={false} />
       </div>
 
+      {/* The learning path this course sits on, derived from prerequisites. */}
+      {path.length > 1 && <LearningPath steps={path} />}
+
       {course.status !== 'ready' ? (
         <p className="text-sm text-muted">This course isn’t open for enrollment yet.</p>
+      ) : blocked ? (
+        <p className="text-sm text-muted">
+          Finish{' '}
+          {unmetPrereqs.map((s, i) => (
+            <span key={s.course_id}>
+              {i > 0 && (i === unmetPrereqs.length - 1 ? ' and ' : ', ')}
+              <Link to={`/courses/${s.course_id}`} className="font-medium text-primary hover:underline">
+                {s.title}
+              </Link>
+            </span>
+          ))}{' '}
+          to unlock this course.
+        </p>
       ) : canEnroll ? (
         <>
           <button
@@ -338,6 +363,59 @@ function ActionRail({ course, enrollment, isOwner, canEnroll, enrollmentsLoading
           Sign in to enroll
         </Link>
       )}
+    </div>
+  )
+}
+
+/** The derived learning path: prerequisite chain in order, target last. Amber
+ *  check = done (the achievement colour), ring = in progress, circle = not
+ *  started. Rendered wherever the enroll decision happens. */
+function LearningPath({ steps }: { steps: LearningPathStep[] }) {
+  return (
+    <div className="flex flex-col gap-1 border-y border-line py-3">
+      <p className="eyebrow mb-1">Learning path</p>
+      <ol className="flex flex-col">
+        {steps.map((step, i) => (
+          <li key={step.course_id} className="flex gap-2.5">
+            {/* Rail: status dot + connector to the next step */}
+            <span className="flex flex-col items-center">
+              <span
+                className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border text-[0.6rem]"
+                style={{
+                  borderColor: step.met ? 'var(--color-accent)' : 'var(--color-line)',
+                  background: step.met ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+                  color: 'var(--color-accent)',
+                }}
+                aria-hidden
+              >
+                {step.met ? '✓' : ''}
+              </span>
+              {i < steps.length - 1 && <span className="w-px flex-1 bg-line" aria-hidden />}
+            </span>
+            <div className="min-w-0 pb-2.5">
+              {step.is_target ? (
+                <span className="text-sm font-medium text-ink">{step.title}</span>
+              ) : (
+                <Link
+                  to={`/courses/${step.course_id}`}
+                  className="text-sm font-medium text-ink hover:text-primary"
+                >
+                  {step.title}
+                </Link>
+              )}
+              <span className="block font-mono text-[0.65rem] text-faint">
+                {step.is_target
+                  ? 'this course'
+                  : step.met
+                    ? 'completed'
+                    : step.enrollment_status === 'active'
+                      ? `in progress · ${Math.round(step.percent_complete ?? 0)}%`
+                      : 'not started'}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
