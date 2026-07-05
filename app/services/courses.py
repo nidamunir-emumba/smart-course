@@ -162,6 +162,14 @@ async def publish_course(
         raise ConflictError(f"Only draft courses can be published (is {course.status.value})")
     course.status = CourseStatus.READY
     await session.commit()
+
+    # Content becomes live again: re-sync existing enrollments (republish after
+    # an edit). Lazy import breaks the enrollments↔courses cycle. First publish
+    # is a no-op — a draft course has no enrollments.
+    published = await get_course(session, course_id)
+    from app.services import enrollments as enrollment_service
+
+    await enrollment_service.reconcile_after_content_change(session, published)
     return await get_course(session, course_id)
 
 

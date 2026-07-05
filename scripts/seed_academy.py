@@ -702,6 +702,8 @@ Exactly-once side effects. The congrats email fires on the ACTIVE→COMPLETED tr
 Data migration honesty. When v2 shipped, old enrollments had counters but no rows — completed courses showed unchecked boxes. The fix was migration 0005: backfill rows from counters. When you change what "truth" means, you must repair existing truth to match.
 
 And one product decision you experienced: once COMPLETED, checkboxes lock (the API returns 409 on un-complete). The certificate was issued; the syllabus becomes a record. State machines need to decide which transitions do NOT exist.
+
+A related edge case, decided the same way: what if the instructor adds a lesson AFTER you finished? Answer — a completed course is an earned record, so your certificate and your 100% freeze (the denominator is not retroactively bumped); you get a soft heads-up notification, no more. An ACTIVE student, by contrast, has their denominator re-synced at republish (2/3 becomes 2/4, the percentage honestly drops) and is nudged to do the new lesson. Same event, two policies, split on "is this a record or a work-in-progress?" — see reconcile_after_content_change in app/services/enrollments.py.
 """
 
 C2_TRACE_NOTIFS = """
